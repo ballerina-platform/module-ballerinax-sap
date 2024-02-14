@@ -79,3 +79,5 @@ clean {
 
 publishToMavenLocal.dependsOn build
 publish.dependsOn build
+build.dependsOn ":${packageName}-native:build"
+test.dependsOn ":${packageName}-native:build"

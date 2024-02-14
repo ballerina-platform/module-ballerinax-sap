@@ -32,8 +32,12 @@ plugins {
 
 rootProject.name = 'module-ballerinax-sap'
 
+include ':checkstyle'
+include ':sap-native'
 include ':sap-ballerina'
 
+project(':checkstyle').projectDir = file("build-config${File.separator}checkstyle")
+project(':sap-native').projectDir = file('native')
 project(':sap-ballerina').projectDir = file("ballerina")
 
 gradleEnterprise {

@@ -67,6 +67,7 @@ allprojects {
 def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
 task build {
+    dependsOn(':sap-native:build')
     dependsOn(':sap-ballerina:build')
 }
 
