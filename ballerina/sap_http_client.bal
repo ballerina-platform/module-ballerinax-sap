@@ -13,7 +13,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/mime;
@@ -52,7 +51,13 @@ public client isolated class HttpClient {
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = self.acceptHeader;
-        return self.httpClient->post(path, message, headers, mediaType, targetType);
+        http:Response|anydata|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        if isCSRFTokenFailure(response) {
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        }
+        return response;
     }
 
     isolated resource function put [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (), string?
@@ -73,7 +78,14 @@ public client isolated class HttpClient {
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = self.acceptHeader;
-        return self.httpClient->put(path, message, headersModified, mediaType, targetType);
+        http:Response|anydata|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
+        if isCSRFTokenFailure(response) {
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        }
+        return response;
+
     }
 
     isolated resource function patch [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (),
@@ -94,7 +106,14 @@ public client isolated class HttpClient {
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = self.acceptHeader;
-        return self.httpClient->patch(path, message, headersModified, mediaType, targetType);
+        http:Response|anydata|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
+        if isCSRFTokenFailure(response) {
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        }
+        return response;
+
     }
 
     isolated resource function delete [http:PathParamType... path](http:RequestMessage message = (), map<string|string[]>? headers = (),
@@ -115,7 +134,14 @@ public client isolated class HttpClient {
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = self.acceptHeader;
-        return self.httpClient->delete(path, message, headersModified, mediaType, targetType);
+        http:Response|anydata|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
+        if isCSRFTokenFailure(response) {
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        }
+        return response;
+
     }
 
     isolated resource function head [http:PathParamType... path](map<string|string[]>? headers = (), *http:QueryParams params)
@@ -164,12 +190,12 @@ public client isolated class HttpClient {
         return self.httpClient->options(path, headersModified, targetType);
     }
 
-    isolated function fetchCSRFTokenForModifyingRequest() returns string|CSRFTokenFetchFailure {
+    isolated function fetchCSRFTokenForModifyingRequest(boolean refreshToken = false) returns string|CSRFTokenFetchFailure {
         string? csrfToken = ();
         lock {
             csrfToken = self.csrfToken;
         }
-        if csrfToken is () {
+        if csrfToken is () || refreshToken {
             map<string|string[]> headersModified = {};
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
             http:Response response = check self.httpClient->head("", headersModified);
@@ -185,4 +211,16 @@ public client isolated class HttpClient {
         }
         return csrfToken;
     }
+}
+
+isolated function isCSRFTokenFailure(http:Response|anydata|ClientError response) returns boolean {
+    if response is http:Response {
+        if response.statusCode == http:STATUS_FORBIDDEN {
+            string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
+            if header is string && header.equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
