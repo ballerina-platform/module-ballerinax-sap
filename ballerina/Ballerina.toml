@@ -4,6 +4,7 @@ name = "sap"
 version = "0.1.0"
 distribution = "2201.8.0"
 authors = ["Ballerina"]
+export = ["sap"]
 repository = "https://github.com/ballerina-platform/module-ballerinax-sap"
 license = ["Apache-2.0"]
 
