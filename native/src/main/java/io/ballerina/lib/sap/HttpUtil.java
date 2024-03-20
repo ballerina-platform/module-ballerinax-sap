@@ -26,6 +26,9 @@ import static io.ballerina.runtime.api.utils.StringUtils.fromString;
 
 public class HttpUtil {
 
+    private HttpUtil() {
+    }
+
     public static BError createHttpError(String message, HttpErrorType errorType, BError cause) {
         return createHttpError(errorType, message, cause, null);
     }
@@ -33,9 +36,6 @@ public class HttpUtil {
     public static BError createHttpError(HttpErrorType errorType, String message, BError cause,
                                          BMap<BString, Object> detail) {
         return ErrorCreator.createError(ModuleUtils.getPackage(), errorType.getErrorName(), fromString(message),
-                                        cause, detail);
-    }
-
-    private HttpUtil() {
+                cause, detail);
     }
 }

@@ -53,10 +53,13 @@ import static io.ballerina.lib.sap.HttpConstants.SRC_HANDLER;
 
 public class HttpClientAction {
 
+    private HttpClientAction() {
+    }
+
     public static Object postResource(Environment env, BObject client, BArray path, Object message, Object headers,
                                       Object mediaType, BTypedesc targetType, BMap params) {
         return invokeClientMethod(env, client, constructRequestPath(path, params), message, mediaType, headers,
-                                  targetType, "processPost");
+                targetType, "processPost");
     }
 
     public static Object post(Environment env, BObject client, BString path, Object message, Object headers,
@@ -65,9 +68,9 @@ public class HttpClientAction {
     }
 
     public static Object putResource(Environment env, BObject client, BArray path, Object message, Object headers,
-                                      Object mediaType, BTypedesc targetType, BMap params) {
+                                     Object mediaType, BTypedesc targetType, BMap params) {
         return invokeClientMethod(env, client, constructRequestPath(path, params), message, mediaType, headers,
-                                  targetType, "processPut");
+                targetType, "processPut");
     }
 
     public static Object put(Environment env, BObject client, BString path, Object message, Object headers,
@@ -76,9 +79,9 @@ public class HttpClientAction {
     }
 
     public static Object patchResource(Environment env, BObject client, BArray path, Object message, Object headers,
-                                      Object mediaType, BTypedesc targetType, BMap params) {
+                                       Object mediaType, BTypedesc targetType, BMap params) {
         return invokeClientMethod(env, client, constructRequestPath(path, params), message, mediaType, headers,
-                                  targetType, "processPatch");
+                targetType, "processPatch");
     }
 
     public static Object patch(Environment env, BObject client, BString path, Object message, Object headers,
@@ -87,9 +90,9 @@ public class HttpClientAction {
     }
 
     public static Object deleteResource(Environment env, BObject client, BArray path, Object message, Object headers,
-                                      Object mediaType, BTypedesc targetType, BMap params) {
+                                        Object mediaType, BTypedesc targetType, BMap params) {
         return invokeClientMethod(env, client, constructRequestPath(path, params), message, mediaType, headers,
-                                  targetType, "processDelete");
+                targetType, "processDelete");
     }
 
     public static Object delete(Environment env, BObject client, BString path, Object message, Object headers,
@@ -118,7 +121,7 @@ public class HttpClientAction {
     public static Object optionsResource(Environment env, BObject client, BArray path, Object headers,
                                          BTypedesc targetType, BMap params) {
         return invokeClientMethod(env, client, constructRequestPath(path, params), headers, targetType,
-                                  "processOptions");
+                "processOptions");
     }
 
     public static Object options(Environment env, BObject client, BString path, Object headers, BTypedesc targetType) {
@@ -167,7 +170,7 @@ public class HttpClientAction {
             public void notifyFailure(BError bError) {
                 BError invocationError =
                         HttpUtil.createHttpError("client method invocation failed: " + bError.getErrorMessage(),
-                                                 HttpErrorType.CLIENT_ERROR, bError);
+                                HttpErrorType.CLIENT_ERROR, bError);
                 balFuture.complete(invocationError);
             }
         }, propertyMap, PredefinedTypes.TYPE_NULL, paramFeed);
@@ -240,8 +243,5 @@ public class HttpClientAction {
             queryParams.add(key.getValue() + EQUAL_SIGN + valueString);
         }
         return String.join(AND_SIGN, queryParams);
-    }
-
-    private HttpClientAction() {
     }
 }
