@@ -4,6 +4,9 @@
 # Log file
 *.log
 
+#Config file
+Config.toml
+
 # BlueJ files
 *.ctxt
 
@@ -12,6 +15,7 @@
 
 # Package Files #
 *.jar
+!gradle-wrapper/*.jar
 *.war
 *.nar
 *.ear
@@ -21,4 +25,45 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
-replay_pid*
+
+# Ballerina
+Ballerina.lock
+
+# Ignore everything in this directory
+target
+
+# Ballerina
+Ballerina.lock
+
+#Idea files
+.idea
+*.iml
+*.ipr
+*.iws
+
+# generated files
+target
+.ballerina
+/compiler-plugin-tests/bin/
+
+# gradle
+.gradle
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# mac
+.DS_Store
+
+.classpath
+.project
+.settings
+.vscode
+
+#Ignore examples auto generated files
+examples/**/Dependencies.toml
+examples/**/Config.toml
+
+# Environment files
+*.env

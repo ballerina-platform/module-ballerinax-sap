@@ -1,0 +1,14 @@
+[package]
+org = "ballerinax"
+name = "sap"
+version = "@toml.version@"
+distribution = "2201.8.0"
+authors = ["Ballerina"]
+repository = "https://github.com/ballerina-platform/module-ballerinax-sap"
+license = ["Apache-2.0"]
+
+[build-options]
+observabilityIncluded = true
+
+[platform.java17]
+graalvmCompatible = true
