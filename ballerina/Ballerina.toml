@@ -4,6 +4,7 @@ name = "sap"
 version = "0.1.0"
 distribution = "2201.8.0"
 authors = ["Ballerina"]
+export = ["sap"]
 repository = "https://github.com/ballerina-platform/module-ballerinax-sap"
 license = ["Apache-2.0"]
 
@@ -12,3 +13,9 @@ observabilityIncluded = true
 
 [platform.java17]
 graalvmCompatible = true
+
+[[platform.java17.dependency]]
+groupId = "io.ballerina.lib.sap"
+artifactId = "sap-native-0.1.0-SNAPSHOT"
+version="0.1.0-SNAPSHOT"
+path = "../native/build/libs/sap-native-0.1.0-SNAPSHOT.jar"

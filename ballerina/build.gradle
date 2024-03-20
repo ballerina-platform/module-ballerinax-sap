@@ -47,7 +47,7 @@ def stripBallerinaExtensionVersion(String extVersion) {
 ballerina {
     packageOrganization = packageOrg
     module = packageName
-    testCoverageParam = "--code-coverage --coverage-format=xml"
+    testCoverageParam = "--code-coverage --coverage-format=xml --includes=io.ballerina.lib.sap.*:ballerinax.sap*"
     isConnector = true
     platform = "any"
 }
@@ -73,9 +73,7 @@ task commitTomlFiles {
     }
 }
 
-clean {
-    delete 'build'
-}
-
 publishToMavenLocal.dependsOn build
 publish.dependsOn build
+build.dependsOn ":${packageName}-native:build"
+test.dependsOn ":${packageName}-native:build"
