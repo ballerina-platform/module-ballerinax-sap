@@ -34,7 +34,6 @@ function testTokenFetch() returns error? {
 }
 
 @test:Config {
-    enable: false,
     dependsOn: [testTokenFetch]
 }
 function testTokenRefreshAfterExpiry() returns error? {
