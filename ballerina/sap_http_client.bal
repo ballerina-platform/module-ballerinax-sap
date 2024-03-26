@@ -198,7 +198,7 @@ public client isolated class HttpClient {
         if csrfToken is () || refreshToken {
             map<string|string[]> headersModified = {};
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
-            http:Response response = check self.httpClient->head("", headersModified);
+            http:Response response = check self.httpClient->head("/", headersModified);
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
             if header is string {
                 lock {
