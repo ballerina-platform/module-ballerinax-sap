@@ -53,7 +53,7 @@ public client isolated class HttpClient {
         headersModified[ACCEPT_HEADER] = self.acceptHeader;
         http:Response|anydata|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->post(path, message, headersModified, mediaType, targetType);
         }
@@ -198,7 +198,7 @@ public client isolated class HttpClient {
         if csrfToken is () || refreshToken {
             map<string|string[]> headersModified = {};
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
-            http:Response response = check self.httpClient->head("", headersModified);
+            http:Response response = check self.httpClient->head("/", headersModified);
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
             if header is string {
                 lock {
