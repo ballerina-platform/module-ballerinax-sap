@@ -53,7 +53,7 @@ public client isolated class HttpClient {
         headersModified[ACCEPT_HEADER] = self.acceptHeader;
         http:Response|anydata|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->post(path, message, headersModified, mediaType, targetType);
         }
