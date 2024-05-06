@@ -2,7 +2,7 @@
 org = "ballerinax"
 name = "sap"
 version = "@toml.version@"
-distribution = "2201.8.0"
+distribution = "2201.9.0"
 authors = ["Ballerina"]
 export = ["sap"]
 repository = "https://github.com/ballerina-platform/module-ballerinax-sap"
