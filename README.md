@@ -19,7 +19,7 @@ In this guide, we'll be utilizing the `S/4HANA` Sales Order API to showcase the 
 
 1. Sign in to your S/4HANA dashboard.
 
-### Step 2: Create Communication System
+### Step 2: Create a Communication System
 
 1. Under the `Communication Management` section, click on the `Display Communications Scenario` title.
 
@@ -47,7 +47,7 @@ In this guide, we'll be utilizing the `S/4HANA` Sales Order API to showcase the 
 
 7. Click Save.
 
-### Step 3: Create Communication Arrangement
+### Step 3: Create a Communication Arrangement
 
 1. Under the `Communication Management` section, click on the `Display Communications Scenario` title.
 

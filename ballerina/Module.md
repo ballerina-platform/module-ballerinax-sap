@@ -1,8 +1,8 @@
-## Package Overview
+## Overview
 
 [SAP](https://www.sap.com/india/index.html) is a global leader in enterprise resource planning (ERP) software. Beyond ERP, SAP offers a diverse range of solutions including human capital management (HCM), customer relationship management (CRM), enterprise performance management (EPM), product lifecycle management (PLM), supplier relationship management (SRM), supply chain management (SCM), business technology platform (BTP), and the SAP AppGyver programming environment for businesses.
 
-The `ballerinax/sap` package provides a client for interfacing with APIs across SAP's product suite. This client comes with built-in SAP system complient CSRF token authentication.
+The `ballerinax/sap` package provides an `HTTP` client for interfacing with APIs across SAP's product suite. This client comes with built-in SAP system complient CSRF token authentication.
 
 ## Setup guide
 
@@ -102,12 +102,3 @@ json salesOrderList = check sapClient->/A_SalesOrder();
 ```bash
 bal run
 ```
-
-## Report Issues
-
-To report bugs, request new features, start new discussions, view project boards, etc., go to the [Ballerina library parent repository](https://github.com/ballerina-platform/ballerina-library).
-
-## Useful Links
-
-- Chat live with us via our [Discord server](https://discord.gg/ballerinalang).
-- Post all technical questions on Stack Overflow with the [#ballerina](https://stackoverflow.com/questions/tagged/ballerina) tag.
