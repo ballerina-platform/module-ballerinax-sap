@@ -51,9 +51,9 @@ import static io.ballerina.lib.sap.HttpConstants.REMOTE_ADDRESS;
 import static io.ballerina.lib.sap.HttpConstants.SINGLE_SLASH;
 import static io.ballerina.lib.sap.HttpConstants.SRC_HANDLER;
 
-public class HttpClientAction {
+public class ClientAction {
 
-    private HttpClientAction() {
+    private ClientAction() {
     }
 
     public static Object postResource(Environment env, BObject client, BArray path, Object message, Object headers,

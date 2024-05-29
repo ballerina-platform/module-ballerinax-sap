@@ -17,7 +17,7 @@ import ballerina/http;
 import ballerina/test;
 import ballerinax/sap.mock as _;
 
-HttpClient sapClient = check new (
+Client sapClient = check new (
     url = "http://localhost:9093/API_SALES_ORDER_SRV",
     config = {
         auth: {

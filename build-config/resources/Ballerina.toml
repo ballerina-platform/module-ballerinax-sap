@@ -4,8 +4,10 @@ name = "sap"
 version = "@toml.version@"
 distribution = "2201.9.0"
 authors = ["Ballerina"]
+keywords = ["Business Management/ERP", "Cost/Paid"]
 export = ["sap"]
 repository = "https://github.com/ballerina-platform/module-ballerinax-sap"
+icon = "icon.png"
 license = ["Apache-2.0"]
 
 [build-options]
