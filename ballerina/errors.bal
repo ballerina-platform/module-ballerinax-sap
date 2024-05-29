@@ -15,6 +15,8 @@
 // under the License.
 import ballerina/http;
 
+# Defines the possible client error types.
 public type ClientError http:ClientError;
 
+# Represents an error, which occured due to a CSRF token fetch failure.
 public type CSRFTokenFetchFailure http:ClientError;
