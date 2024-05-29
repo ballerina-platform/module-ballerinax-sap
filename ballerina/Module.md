@@ -2,7 +2,7 @@
 
 [SAP](https://www.sap.com/india/index.html) is a global leader in enterprise resource planning (ERP) software. Beyond ERP, SAP offers a diverse range of solutions including human capital management (HCM), customer relationship management (CRM), enterprise performance management (EPM), product lifecycle management (PLM), supplier relationship management (SRM), supply chain management (SCM), business technology platform (BTP), and the SAP AppGyver programming environment for businesses.
 
-The `ballerinax/sap` package provides an `HTTP` client for interfacing with APIs across SAP's product suite. This client comes with built-in SAP system complient CSRF token authentication.
+The `ballerinax/sap` package provides an `HTTP` client for interfacing with APIs across SAP's product suite. This client comes with built-in SAP system-complient CSRF token authentication.
 
 ## Setup guide
 
@@ -30,11 +30,11 @@ In this guide, we'll be utilizing the `S/4HANA` Sales Order API to showcase the 
 
     ![Give Hostname](https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-sap/main/docs/setup/2-4-give-hostname.png)
 
-5. Add Users for Inbound Communication.
+5. Add `Users` for `Inbound Communication`.
 
     ![Add User](https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-sap/main/docs/setup/2-5-add-user.png)
    
-6. Select Authentication Method and User.
+6. Select the `Authentication Method` and `User`.
 
     ![Select User](https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-sap/main/docs/setup/2-6-select-user.png)
 
