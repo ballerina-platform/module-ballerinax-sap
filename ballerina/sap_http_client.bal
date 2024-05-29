@@ -17,7 +17,7 @@ import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/mime;
 
-public client isolated class HttpClient {
+public client isolated class Client {
 
     final http:Client httpClient;
     private string? csrfToken = ();
@@ -35,14 +35,14 @@ public client isolated class HttpClient {
 
     isolated resource function post [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (), string?
             mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "postResource"
     } external;
 
     remote isolated function post(string path, http:RequestMessage message, map<string|string[]>? headers = (),
             string? mediaType = (), http:TargetType targetType = <>)
             returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction"
+        'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
     private isolated function processPost(string path, http:RequestMessage message, http:TargetType targetType,
@@ -62,14 +62,14 @@ public client isolated class HttpClient {
 
     isolated resource function put [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (), string?
             mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "putResource"
     } external;
 
     remote isolated function put(string path, http:RequestMessage message, map<string|string[]>? headers = (),
             string? mediaType = (), http:TargetType targetType = <>)
             returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction"
+        'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
     private isolated function processPut(string path, http:RequestMessage message, http:TargetType targetType,
@@ -90,14 +90,14 @@ public client isolated class HttpClient {
 
     isolated resource function patch [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (),
             string? mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "patchResource"
     } external;
 
     remote isolated function patch(string path, http:RequestMessage message, map<string|string[]>? headers = (),
             string? mediaType = (), http:TargetType targetType = <>)
             returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction"
+        'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
     private isolated function processPatch(string path, http:RequestMessage message, http:TargetType targetType,
@@ -118,14 +118,14 @@ public client isolated class HttpClient {
 
     isolated resource function delete [http:PathParamType... path](http:RequestMessage message = (), map<string|string[]>? headers = (),
             string? mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "deleteResource"
     } external;
 
     remote isolated function delete(string path, http:RequestMessage message = (),
             map<string|string[]>? headers = (), string? mediaType = (), http:TargetType targetType = <>)
             returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction"
+        'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
     private isolated function processDelete(string path, http:RequestMessage message, http:TargetType targetType,
@@ -146,7 +146,7 @@ public client isolated class HttpClient {
 
     isolated resource function head [http:PathParamType... path](map<string|string[]>? headers = (), *http:QueryParams params)
             returns http:Response|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "headResource"
     } external;
 
@@ -156,13 +156,13 @@ public client isolated class HttpClient {
 
     isolated resource function get [http:PathParamType... path](map<string|string[]>? headers = (), http:TargetType targetType = <>,
             *http:QueryParams params) returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "getResource"
     } external;
 
     remote isolated function get(string path, map<string|string[]>? headers = (), http:TargetType targetType = <>)
             returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction"
+        'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
     private isolated function processGet(string path, map<string|string[]>? headers, http:TargetType targetType)
@@ -174,13 +174,13 @@ public client isolated class HttpClient {
 
     isolated resource function options [http:PathParamType... path](map<string|string[]>? headers = (), http:TargetType targetType = <>,
             *http:QueryParams params) returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction",
+        'class: "io.ballerina.lib.sap.ClientAction",
         name: "optionsResource"
     } external;
 
     remote isolated function options(string path, map<string|string[]>? headers = (), http:TargetType targetType = <>)
             returns targetType|ClientError = @java:Method {
-        'class: "io.ballerina.lib.sap.HttpClientAction"
+        'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
     private isolated function processOptions(string path, map<string|string[]>? headers, http:TargetType targetType)

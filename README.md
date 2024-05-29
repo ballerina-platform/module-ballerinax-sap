@@ -90,7 +90,7 @@ import ballerinax/sap;
 ### Step 2: Instantiate a new connector
 
 ```ballerina
-sap:HttpClient sapClient = check new("https://<hostname>/sap/opu/odata/sap/API_SALES_ORDER_SRV", {
+sap:Client sapClient = check new("https://<hostname>/sap/opu/odata/sap/API_SALES_ORDER_SRV", {
     auth: {
         username,
         password
