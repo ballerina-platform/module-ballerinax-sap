@@ -49,7 +49,6 @@ ballerina {
     module = packageName
     testCoverageParam = "--code-coverage --coverage-format=xml --includes=io.ballerina.lib.sap.*:ballerinax.sap*"
     isConnector = true
-    platform = "any"
 }
 
 task updateTomlFiles {
