@@ -35,10 +35,12 @@ rootProject.name = 'module-ballerinax-sap'
 include ':checkstyle'
 include ':sap-native'
 include ':sap-ballerina'
+include ':sap-examples'
 
 project(':checkstyle').projectDir = file("build-config${File.separator}checkstyle")
 project(':sap-native').projectDir = file('native')
 project(':sap-ballerina').projectDir = file("ballerina")
+project(':sap-examples').projectDir = file("examples")
 
 gradleEnterprise {
     buildScan {

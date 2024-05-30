@@ -14,3 +14,6 @@ jobs:
     with:
       package-name: sap
       package-org: ballerinax
+      additional-build-flags: "-x :sap-examples:test"
+      additional-publish-flags: "-x :sap-examples:test"
+      additional-release-flags: "-x :sap-examples:test"
