@@ -60,19 +60,19 @@ public function main() returns error? {
     SalesOrder[] salesOrderList = salesOrders.d.results;
     SalesOrder[] remiderSalesOrders = salesOrderList.filter(salesOrder => salesOrder?.SalesDocApprovalStatus == "In Approval");
 
-    // Send reminder email to the customer.
+    // Send a reminder email to the customer.
     if sendEmail {
         check sendReminderEmail(remiderSalesOrders);
     } else {
         io:println(string `Pending Sales Orders: ${remiderSalesOrders.length()}`);
-        io:println("To send reminder emails, set the 'sendEmail' configuration to 'true'.");
+        io:println("To send a reminder email, set the 'sendEmail' configuration to 'true'.");
     }
 }
 
 function sendReminderEmail(SalesOrder[] remiderSalesOrders) returns error? {
 
     if remiderSalesOrders.length() == 0 {
-        io:println("No pending orders to send reminders.");
+        io:println("No pending orders to send a reminder.");
         return;
     }
 
@@ -96,8 +96,8 @@ function sendReminderEmail(SalesOrder[] remiderSalesOrders) returns error? {
     </head>
     <body>
         <p>Dear Customer,</p>
-        <p>This is a gentle reminder regarding the Sales Orders that are still pending approval. 
-        We kindly request you to review and approve the following orders at your earliest convenience to avoid any delays in processing.</p>
+        <p>This is a gentle reminder regarding the sales orders that are still pending approval. 
+        Kindly review and approve the following orders at your earliest convenience to avoid any delays in processing.</p>
         <p>${ordersTable}</p>
         <p>We appreciate your prompt attention to this matter.</p>
         <p>Best Regards,</p>

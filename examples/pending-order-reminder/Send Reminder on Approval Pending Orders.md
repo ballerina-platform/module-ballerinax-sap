@@ -1,14 +1,14 @@
-# Send reminder on approval pending sales orders
+# Send a reminder on approval of pending orders
 
 This example illustrates the use of the `sap:Client` in Ballerina to interact with S/4HANA APIs. Specifically, it demonstrates how to send a reminder email for sales orders that are pending approval.
 
 ## Prerequisites
 
-### 1. Setup S/4HANA API
+### 1. Setup the S/4HANA API
 
 Refer to the [Setup Guide](https://central.ballerina.io/ballerinax/sap/latest#setup-guide) for necessary credentials (hostname, username, password).
 
-### 2. Setup Gmail API
+### 2. Setup the Gmail API
 
 Refer to the [Setup Guide](https://central.ballerina.io/ballerinax/googleapis.gmail/latest#setup-guide) for necessary credentials (client ID, secret, tokens).
 

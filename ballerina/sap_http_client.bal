@@ -23,7 +23,6 @@ public client isolated class Client {
 
     final http:Client httpClient;
     private string? csrfToken = ();
-    private final string acceptHeader;
 
     # Gets invoked to initialize the `client`. During initialization, the configurations provided through the `config`
     # record is used to determine which type of additional behaviours are added to the endpoint (e.g.
@@ -31,15 +30,12 @@ public client isolated class Client {
     #
     # + url - URL of the target service
     # + config - The configurations to be used when initializing the `client`
-    # + acceptHeader - The accept header to be used when sending requests
     # + return - The `client` or an `sap:ClientError` if the initialization failed
-    public isolated function init(string url, http:ClientConfiguration config,
-            string acceptHeader = mime:APPLICATION_JSON) returns ClientError? {
+    public isolated function init(string url, http:ClientConfiguration config) returns ClientError? {
         config.cookieConfig = {
             enabled: true
         };
         self.httpClient = check new (url, config);
-        self.acceptHeader = acceptHeader;
         return;
     }
 
@@ -79,7 +75,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        headersModified[ACCEPT_HEADER] = self.acceptHeader;
+        headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         http:Response|anydata|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
@@ -125,7 +121,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        headersModified[ACCEPT_HEADER] = self.acceptHeader;
+        headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         http:Response|anydata|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
@@ -172,7 +168,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        headersModified[ACCEPT_HEADER] = self.acceptHeader;
+        headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         http:Response|anydata|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
@@ -219,7 +215,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        headersModified[ACCEPT_HEADER] = self.acceptHeader;
+        headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         http:Response|anydata|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
@@ -280,7 +276,7 @@ public client isolated class Client {
     private isolated function processGet(string path, map<string|string[]>? headers, http:TargetType targetType)
             returns http:Response|anydata|error {
         map<string|string[]> headersModified = headers ?: {};
-        headersModified[ACCEPT_HEADER] = self.acceptHeader;
+        headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         return self.httpClient->get(path, headersModified, targetType);
     }
 
@@ -313,7 +309,7 @@ public client isolated class Client {
     private isolated function processOptions(string path, map<string|string[]>? headers, http:TargetType targetType)
             returns http:Response|anydata|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        headersModified[ACCEPT_HEADER] = self.acceptHeader;
+        headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         return self.httpClient->options(path, headersModified, targetType);
     }
 
