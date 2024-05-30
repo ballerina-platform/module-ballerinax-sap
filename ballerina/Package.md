@@ -103,6 +103,12 @@ json salesOrderList = check sapClient->/A_SalesOrder();
 bal run
 ```
 
+## Examples
+
+The `sap` connector provides practical examples illustrating usage in various scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-sap/tree/master/examples), covering use cases like accessing S/4HANA Sales Order (A2X) API.
+
+1. [Send reminder on approval pending orders](https://github.com/ballerina-platform/module-ballerinax-sap/tree/main/examples/pending-order-reminder) - This example illustrates the use of the `sap:Client` in Ballerina to interact with S/4HANA APIs. Specifically, it demonstrates how to send a reminder email for sales orders that are pending approval.
+
 ## Report Issues
 
 To report bugs, request new features, start new discussions, view project boards, etc., go to the [Ballerina library parent repository](https://github.com/ballerina-platform/ballerina-library).
