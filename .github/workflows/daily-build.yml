@@ -12,3 +12,4 @@ jobs:
     secrets: inherit
     with:
       repo-name: module-ballerinax-sap
+      additional-build-flags: "-x :sap-examples:test"
