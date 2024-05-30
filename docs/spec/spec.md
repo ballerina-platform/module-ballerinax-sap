@@ -82,7 +82,7 @@ The SAP client contains separate remote method representing each HTTP method suc
 
 #### 2.2.1 Entity body methods
  
-POST, PUT, DELETE, PATCH methods are considered as entity body methods. These remote methods contains RequestMessage
+POST, PUT, DELETE, and PATCH methods are considered as entity body methods. These remote methods contain RequestMessage
 as the second parameter to send out the Request or Payload. 
 
 ```ballerina
@@ -112,10 +112,10 @@ remote isolated function delete(string path, RequestMessage message = (), map<st
         returns targetType|ClientError;
 ```
 
-#### 2.2.2 Non Entity body methods
+#### 2.2.2 Non-Entity body methods
 
 GET, HEAD, OPTIONS methods are considered as non entity body methods. These remote methods do not contain 
-RequestMessage, but the header map an optional param.
+RequestMessage, but the header map is an optional param.
 
 ```ballerina
 # The head() function can be used to send HTTP HEAD requests to HTTP endpoints.
@@ -207,6 +207,6 @@ json salesOrder = check sapClient->get(string `/A_SalesOrder/${salesOrder}?limit
 The SAP client remote method supports the contextually expected return types. The client operation is able to 
 infer the expected payload type from the LHS variable type. This is called as client payload binding support where the 
 inbound response payload is accessed and parse to the expected type in the method signature. It is easy to access the
-payload directly rather manipulation `http:Response` using its support methods such as `getTextPayload()`, ..etc.
+payload directly, rather than manipulating `http:Response` using its support methods such as `getTextPayload()`, ..etc.
 
 Client data binding support is same as [`http` module](https://github.com/ballerina-platform/module-ballerina-http/blob/master/docs/spec/spec.md#243-client-action-return-types).
