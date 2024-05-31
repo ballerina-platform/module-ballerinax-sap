@@ -19,4 +19,4 @@ jobs:
     secrets: inherit
     with:
       environment: ${{ github.event.inputs.environment }}
-      additional-publish-flags: "-x :sap-examples:test"
+      additional-publish-flags: "-x :sap-examples:test -Pdisable=sap"

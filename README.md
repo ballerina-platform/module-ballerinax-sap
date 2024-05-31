@@ -173,7 +173,7 @@ Execute the commands below to build from the source.
    ./gradlew clean test -Pgroups=<Comma separated groups/test cases>
    ```
 
-   Tip: The following groups of test cases are available.
+   **Tip**: For detailed information, please refer to the [Tests_README](ballerina/tests/README.md) document.   
    Groups | Environment
    ---| ---
    mock | Mock server
