@@ -18,9 +18,9 @@ import ballerina/http;
 import ballerina/lang.runtime;
 import ballerina/test;
 
-configurable string hostname = ?;
-configurable string username = ?;
-configurable string password = ?;
+configurable string hostname = "";
+configurable string username = "";
+configurable string password = "";
 
 // This test is run against the SAP Sales Order API. 
 Client s4HanaClient = check new (string `https://${hostname}/sap/opu/odata/sap/API_SALES_ORDER_SRV`, {
