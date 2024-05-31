@@ -12,4 +12,4 @@ jobs:
     uses: ballerina-platform/ballerina-library/.github/workflows/trivy-scan-template.yml@main
     secrets: inherit
     with:
-      additional-build-flags: "-x :sap-examples:test"
+      additional-build-flags: "-x :sap-examples:build"
