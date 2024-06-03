@@ -5,7 +5,7 @@
 *.log
 
 #Config file
-Config.toml
+**/Config.toml
 
 # BlueJ files
 *.ctxt
@@ -17,23 +17,14 @@ Config.toml
 *.jar
 !gradle-wrapper/*.jar
 *.war
-*.nar
 *.ear
 *.zip
 *.tar.gz
 *.rar
+*.deb
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
-
-# Ballerina
-Ballerina.lock
-
-# Ignore everything in this directory
-target
-
-# Ballerina
-Ballerina.lock
 
 #Idea files
 .idea
@@ -45,6 +36,7 @@ Ballerina.lock
 target
 .ballerina
 /compiler-plugin-tests/bin/
+generated/
 
 # gradle
 .gradle
@@ -56,6 +48,7 @@ gradle-app.setting
 # mac
 .DS_Store
 
+# VSCode
 .classpath
 .project
 .settings
