@@ -33,6 +33,10 @@ service /API_SALES_ORDER_SRV on new http:Listener(9093) {
         return res;
     }
 
+    resource function options .() returns http:Response|http:InternalServerError {
+        return http:INTERNAL_SERVER_ERROR;
+    }
+
     resource function get A_SalesOrder() returns http:Response {
         http:Response res = new;
         res.setPayload("Sales Order");

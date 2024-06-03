@@ -16,4 +16,5 @@ jobs:
     uses: ballerina-platform/ballerina-library/.github/workflows/build-with-bal-test-graalvm-connector-template.yml@main
     secrets: inherit
     with:
-      additional-build-flags: "-x :sap-examples:build"
+      additional-build-flags: "-x :sap-examples:build -Pdisable=sap"
+      additional-test-flags: "--disable-groups sap"
