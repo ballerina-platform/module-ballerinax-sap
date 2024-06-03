@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add `sap:Client` support
 
 ### Changed
+
+## [1.0.0] - 03/06/2024
+
+### Added
+- Add `sap:Client` support
