@@ -21,17 +21,17 @@ bal test --disable-groups sap
 
 ## Running Tests in S/4HANA API Only
 
-**Note**: The test case designed to handle the CSRF Token expiry scenario may take approximately 35 minutes to run due to the configuration in S/4HANA setup.
+**Note**: The test case designed to handle the CSRF token expiry scenario may take approximately 35 minutes to run due to the configuration in S/4HANA setup.
 
 ### Prerequisites
 
 ### 1. Setup the S/4HANA API
 
-Refer to the [Setup Guide](https://central.ballerina.io/ballerinax/sap/latest#setup-guide) for necessary credentials (hostname, username, password).
+Refer to the [Setup Guide](https://central.ballerina.io/ballerinax/sap/latest#setup-guide) for the necessary credentials (hostname, username, password).
 
 ### 2. Configuration
 
-Create a `Config.toml` file in the tests directory and add your authentication credentials
+Create a `Config.toml` file in the tests directory and add your authentication credentials.
 
 ```toml
 hostname="<Hostname>"
