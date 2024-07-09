@@ -16,7 +16,7 @@
  * under the License.
  */
 
-module io.ballerina.stdlib.http {
+module io.ballerina.lib.sap {
     requires io.ballerina.runtime;
     requires io.ballerina.tools.api;
     requires io.ballerina.lang;

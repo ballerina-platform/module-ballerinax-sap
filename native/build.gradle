@@ -32,9 +32,6 @@ configurations {
 dependencies {
     jacocoRuntime "org.jacoco:org.jacoco.agent:${jacoco.toolVersion}:runtime"
 
-    checkstyle project(":checkstyle")
-    checkstyle "com.puppycrawl.tools:checkstyle:${checkstylePluginVersion}"
-
     implementation group: 'org.ballerinalang', name: 'ballerina-lang', version: "${ballerinaLangVersion}"
     implementation group: 'org.ballerinalang', name: 'ballerina-tools-api', version: "${ballerinaLangVersion}"
     implementation group: 'org.ballerinalang', name: 'ballerina-runtime', version: "${ballerinaLangVersion}"
@@ -47,10 +44,6 @@ tasks.withType(JavaCompile) {
 }
 
 sourceCompatibility = JavaVersion.VERSION_17
-
-jacoco {
-    toolVersion = "0.8.5"
-}
 
 test {
     testLogging {
@@ -100,15 +93,12 @@ task validateSpotbugs() {
 checkstyle {
     toolVersion "${checkstylePluginVersion}"
     configFile file("${rootDir}/build-config/checkstyle/build/checkstyle.xml")
-    configProperties = ["suppressionFile" : file("${rootDir}/build-config/checkstyle/build/suppressions.xml")]
+    configProperties = ["suppressionFile": file("${rootDir}/build-config/checkstyle/build/suppressions.xml")]
 }
 
 tasks.withType(Checkstyle) {
     exclude '**/module-info.java'
 }
-
-spotbugsMain.finalizedBy validateSpotbugs
-checkstyleMain.dependsOn ':checkstyle:downloadCheckstyleRuleFiles'
 
 compileJava {
     doFirst {
@@ -118,3 +108,6 @@ compileJava {
         classpath = files()
     }
 }
+
+spotbugsMain.finalizedBy validateSpotbugs
+checkstyleMain.dependsOn ':checkstyle:build'

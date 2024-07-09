@@ -8,13 +8,21 @@ _Edition_: Swan Lake
 
 ## Introduction
 
-This is the specification for the SAP library of [Ballerina language](https://ballerina.io/), which provides HTTP client functionalities to consume SAP HTTP APIs.
+This is the specification for the SAP library of [Ballerina language](https://ballerina.io/), which provides HTTP client
+functionalities to consume SAP HTTP APIs.
 
-The SAP library specification has evolved and may continue to evolve in the future. The released versions of the specification can be found under the relevant GitHub tag. 
+The SAP library specification has evolved and may continue to evolve in the future. The released versions of the
+specification can be found under the relevant GitHub tag.
 
-If you have any feedback or suggestions about the library, start a discussion via a [GitHub issue](https://github.com/ballerina-platform/ballerina-library/issues) or in the [Discord server](https://discord.gg/ballerinalang). Based on the outcome of the discussion, the specification and implementation can be updated. Community feedback is always welcome. Any accepted proposal, which affects the specification is stored under `/docs/proposals`. Proposals under discussion can be found with the label `type/proposal` in GitHub.
+If you have any feedback or suggestions about the library, start a discussion via
+a [GitHub issue](https://github.com/ballerina-platform/ballerina-library/issues) or in
+the [Discord server](https://discord.gg/ballerinalang). Based on the outcome of the discussion, the specification and
+implementation can be updated. Community feedback is always welcome. Any accepted proposal, which affects the
+specification is stored under `/docs/proposals`. Proposals under discussion can be found with the label `type/proposal`
+in GitHub.
 
-The conforming implementation of the specification is released and included in the distribution. Any deviation from the specification is considered a bug.
+The conforming implementation of the specification is released and included in the distribution. Any deviation from the
+specification is considered a bug.
 
 ## Contents
 
@@ -31,15 +39,18 @@ The conforming implementation of the specification is released and included in t
 
 ## 1. Overview
 
-The Ballerina language is designed with a focus on network-oriented programming. Leveraging this, the SAP standard library establishes a programming model that simplifies the consumption of SAP HTTP APIs.
+The Ballerina language is designed with a focus on network-oriented programming. Leveraging this, the SAP standard
+library establishes a programming model that simplifies the consumption of SAP HTTP APIs.
 
 ## 2. Components
 
 ### 2.1. Client
 
-The client enables the application to communicate with a SAP server using the HTTP protocol. Each method of the client object corresponds to a specific network operation as defined by the HTTP protocol.
+The client enables the application to communicate with a SAP server using the HTTP protocol. Each method of the client
+object corresponds to a specific network operation as defined by the HTTP protocol.
 
-To initialize the client, you need a valid SAP URL and optional configuration parameters. Here's an example of how to create a new SAP client:
+To initialize the client, you need a valid SAP URL and optional configuration parameters. Here's an example of how to
+create a new SAP client:
 
 ```ballerina
 sap:Client sapClient = check new (string `https://${hostname}/sap/opu/odata/sap/API_SALES_ORDER_SRV`, {
@@ -81,9 +92,9 @@ The SAP client contains separate remote method representing each HTTP method suc
 `delete`,`patch`,`head`,`options` and some custom remote methods.
 
 #### 2.2.1 Entity body methods
- 
+
 POST, PUT, DELETE, and PATCH methods are considered as entity body methods. These remote methods contain RequestMessage
-as the second parameter to send out the Request or Payload. 
+as the second parameter to send out the Request or Payload.
 
 ```ballerina
 public type RequestMessage Request|string|xml|json|byte[]|int|float|decimal|boolean|map<json>|table<map<json>>|
@@ -114,7 +125,7 @@ remote isolated function delete(string path, RequestMessage message = (), map<st
 
 #### 2.2.2 Non-Entity body methods
 
-GET, HEAD, OPTIONS methods are considered as non entity body methods. These remote methods do not contain 
+GET, HEAD, OPTIONS methods are considered as non entity body methods. These remote methods do not contain
 RequestMessage, but the header map is an optional param.
 
 ```ballerina
@@ -132,7 +143,7 @@ remote isolated function options( string path, map<string|string[]>? headers = (
 
 #### 2.2.3 Resource methods
 
-In addition to the above remote method actions, SAP client supports executing standard HTTP methods through resource 
+In addition to the above remote method actions, SAP client supports executing standard HTTP methods through resource
 methods. The following are the definitions of those resource methods :
 
 ```ballerina
@@ -192,8 +203,10 @@ json salesOrder = check sapClient->get(string `/A_SalesOrder/${salesOrder}`);
 * Query parameter
 
 A query parameter is passed as a key-value pair in the resource method call.
-The supported types are `string`, `int`, `float`, `boolean`, `decimal`, and the `array` types of the aforementioned types.
+The supported types are `string`, `int`, `float`, `boolean`, `decimal`, and the `array` types of the aforementioned
+types.
 The query param type can be nil as well.
+
 ```ballerina
 // Making a GET request
 json salesOrder = check sapClient->/A_SalesOrder/${salesOrder}(limit = 2);
@@ -204,9 +217,10 @@ json salesOrder = check sapClient->get(string `/A_SalesOrder/${salesOrder}?limit
 
 ### 2.3. Client action return types
 
-The SAP client remote method supports the contextually expected return types. The client operation is able to 
-infer the expected payload type from the LHS variable type. This is called as client payload binding support where the 
+The SAP client remote method supports the contextually expected return types. The client operation is able to
+infer the expected payload type from the LHS variable type. This is called as client payload binding support where the
 inbound response payload is accessed and parse to the expected type in the method signature. It is easy to access the
 payload directly, rather than manipulating `http:Response` using its support methods such as `getTextPayload()`, ..etc.
 
-Client data binding support is same as [`http` module](https://github.com/ballerina-platform/module-ballerina-http/blob/master/docs/spec/spec.md#243-client-action-return-types).
+Client data binding support is same
+as [`http` module](https://github.com/ballerina-platform/module-ballerina-http/blob/master/docs/spec/spec.md#243-client-action-return-types).

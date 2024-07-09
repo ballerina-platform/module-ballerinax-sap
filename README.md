@@ -7,15 +7,20 @@
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/ballerina-platform/module-ballerinax-sap.svg)](https://github.com/ballerina-platform/module-ballerinax-sap/commits/main)
 [![GitHub Issues](https://img.shields.io/github/issues/ballerina-platform/ballerina-library/module/sap.svg?label=Open%20Issues)](https://github.com/ballerina-platform/ballerina-library/labels/module%2Fsap)
 
-[SAP](https://www.sap.com/india/index.html) is a global leader in enterprise resource planning (ERP) software. Beyond ERP, SAP offers a diverse range of solutions including human capital management (HCM), customer relationship management (CRM), enterprise performance management (EPM), product lifecycle management (PLM), supplier relationship management (SRM), supply chain management (SCM), business technology platform (BTP), and the SAP AppGyver programming environment for businesses.
+[SAP](https://www.sap.com/india/index.html) is a global leader in enterprise resource planning (ERP) software. Beyond
+ERP, SAP offers a diverse range of solutions including human capital management (HCM), customer relationship
+management (CRM), enterprise performance management (EPM), product lifecycle management (PLM), supplier relationship
+management (SRM), supply chain management (SCM), business technology platform (BTP), and the SAP AppGyver programming
+environment for businesses.
 
-The `ballerinax/sap` package provides an `HTTP` client for interfacing with APIs across SAP's product suite. This client comes with built-in SAP system-compliant CSRF token authentication.
+The `ballerinax/sap` package provides an `HTTP` client for interfacing with APIs across SAP's product suite. This client
+comes with built-in SAP system-compliant CSRF token authentication.
 
 ## Setup guide
 
 In this guide, we'll be utilizing the `S/4HANA` Sales Order API to showcase the capabilities of the SAP Client.
 
-### Step 1: Login 
+### Step 1: Login
 
 1. Sign in to your S/4HANA dashboard.
 
@@ -40,7 +45,7 @@ In this guide, we'll be utilizing the `S/4HANA` Sales Order API to showcase the 
 5. Add `Users` for `Inbound Communication`.
 
    <img src=https://github.com/ballerina-platform/module-ballerinax-sap/blob/main/docs/setup/2-5-add-user.png alt="Add User" width="50%">
-   
+
 6. Select the `Authentication Method` and `User`.
 
    <img src=https://github.com/ballerina-platform/module-ballerinax-sap/blob/main/docs/setup/2-6-select-user.png alt="Select User" width="50%">
@@ -73,7 +78,6 @@ In this guide, we'll be utilizing the `S/4HANA` Sales Order API to showcase the 
 6. The hostname (`<unique id>-api.s4hana.cloud.sap`) will be displayed in the top right corner of the screen.
 
    <img src=https://github.com/ballerina-platform/module-ballerinax-sap/blob/main/docs/setup/3-6-view-hostname.png alt="View Hostname" width="50%">
-
 
 ## Quickstart
 
@@ -118,13 +122,19 @@ bal run
 
 ## Examples
 
-The `sap` connector provides practical examples illustrating usage in various scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-sap/tree/master/examples), covering use cases like accessing S/4HANA Sales Order (A2X) API.
+The `sap` connector provides practical examples illustrating usage in various scenarios. Explore
+these [examples](https://github.com/ballerina-platform/module-ballerinax-sap/tree/master/examples), covering use cases
+like accessing S/4HANA Sales Order (A2X) API.
 
-1. [Send a reminder on approval of pending orders](https://github.com/ballerina-platform/module-ballerinax-sap/tree/main/examples/pending-order-reminder) - This example illustrates the use of the `sap:Client` in Ballerina to interact with S/4HANA APIs. Specifically, it demonstrates how to send a reminder email for sales orders that are pending approval.
+1. [Send a reminder on approval of pending orders](https://github.com/ballerina-platform/module-ballerinax-sap/tree/main/examples/pending-order-reminder) -
+   This example illustrates the use of the `sap:Client` in Ballerina to interact with S/4HANA APIs. Specifically, it
+   demonstrates how to send a reminder email for sales orders that are pending approval.
 
 ## Issues and projects
 
-The **Issues** and **Projects** tabs are disabled for this repository as this is part of the Ballerina library. To report bugs, request new features, start new discussions, view project boards, etc., visit the Ballerina library [parent repository](https://github.com/ballerina-platform/ballerina-library).
+The **Issues** and **Projects** tabs are disabled for this repository as this is part of the Ballerina library. To
+report bugs, request new features, start new discussions, view project boards, etc., visit the Ballerina
+library [parent repository](https://github.com/ballerina-platform/ballerina-library).
 
 This repository only contains the source code for the package.
 
@@ -132,18 +142,20 @@ This repository only contains the source code for the package.
 
 ### Prerequisites
 
-1. Download and install Java SE Development Kit (JDK) version 17. You can download it from either of the following sources:
+1. Download and install Java SE Development Kit (JDK) version 17. You can download it from either of the following
+   sources:
 
-   * [Oracle JDK](https://www.oracle.com/java/technologies/downloads/)
-   * [OpenJDK](https://adoptium.net/)
+    * [Oracle JDK](https://www.oracle.com/java/technologies/downloads/)
+    * [OpenJDK](https://adoptium.net/)
 
-    > **Note:** After installation, remember to set the `JAVA_HOME` environment variable to the directory where JDK was installed.
+   > **Note:** After installation, remember to set the `JAVA_HOME` environment variable to the directory where JDK was
+   installed.
 
 2. Download and install [Ballerina Swan Lake](https://ballerina.io/).
 
 3. Download and install [Docker](https://www.docker.com/get-started).
 
-    > **Note**: Ensure that the Docker daemon is running before executing any tests.
+   > **Note**: Ensure that the Docker daemon is running before executing any tests.
 
 ### Build options
 
