@@ -13,5 +13,4 @@ jobs:
     uses: ballerina-platform/ballerina-library/.github/workflows/pr-build-connector-template.yml@main
     secrets: inherit
     with:
-      additional-build-flags: "-x :sap-examples:test"
       additional-test-flags: "-x :sap-examples:test -Pdisable=sap"
