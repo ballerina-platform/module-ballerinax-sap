@@ -18,7 +18,6 @@
 
 plugins {
     id 'com.github.spotbugs-base'
-    id 'com.github.johnrengelman.shadow'
     id 'de.undercouch.download'
     id 'net.researchgate.release'
 }
@@ -60,7 +59,7 @@ allprojects {
     }
 
     ext {
-        snapshotVersion= '-SNAPSHOT'
+        snapshotVersion = '-SNAPSHOT'
         timestampedVersionRegex = '.*-\\d{8}-\\d{6}-\\w.*\$'
     }
 }
