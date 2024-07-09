@@ -10,5 +10,5 @@ observabilityIncluded = true
 [[dependency]]
 org = "ballerinax"
 name = "sap"
-version = "1.0.0"
+version = "1.0.1"
 repository = "local"
