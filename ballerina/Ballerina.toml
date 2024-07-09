@@ -19,5 +19,5 @@ graalvmCompatible = true
 [[platform.java17.dependency]]
 groupId = "io.ballerina.lib.sap"
 artifactId = "sap-native-1.0.1-SNAPSHOT"
-version="1.0.1-SNAPSHOT"
+version = "1.0.1-SNAPSHOT"
 path = "../native/build/libs/sap-native-1.0.1-SNAPSHOT.jar"

@@ -1,5 +1,5 @@
 ignore:
-    - "ballerina/modules"
+  - "ballerina/modules"
 
 coverage:
   precision: 2
