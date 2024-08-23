@@ -17,6 +17,9 @@ import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/mime;
 
+# The `sap` client return type for the HTTP client actions.
+public type TargetType http:Response|anydata;
+
 # The `sap` client provides the capability for initiating contact with a remote HTTP service provided by any SAP products. The API it
 # provides includes the functions for the standard HTTP methods.
 public client isolated class Client {
@@ -50,7 +53,7 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     isolated resource function post [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (), string?
-            mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
+            mediaType = (), typedesc<TargetType> targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction",
         name: "postResource"
     } external;
@@ -65,18 +68,18 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     remote isolated function post(string path, http:RequestMessage message, map<string|string[]>? headers = (),
-            string? mediaType = (), http:TargetType targetType = <>)
+            string? mediaType = (), typedesc<TargetType> targetType = <>)
             returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
-    private isolated function processPost(string path, http:RequestMessage message, http:TargetType targetType,
-            string? mediaType, map<string|string[]>? headers) returns http:Response|anydata|ClientError {
+    private isolated function processPost(string path, http:RequestMessage message, typedesc<TargetType> targetType,
+            string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
-        http:Response|anydata|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
@@ -96,7 +99,7 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     isolated resource function put [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (), string?
-            mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
+            mediaType = (), typedesc<TargetType> targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction",
         name: "putResource"
     } external;
@@ -111,18 +114,18 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     remote isolated function put(string path, http:RequestMessage message, map<string|string[]>? headers = (),
-            string? mediaType = (), http:TargetType targetType = <>)
+            string? mediaType = (), typedesc<TargetType> targetType = <>)
             returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
-    private isolated function processPut(string path, http:RequestMessage message, http:TargetType targetType,
-            string? mediaType, map<string|string[]>? headers) returns http:Response|anydata|ClientError {
+    private isolated function processPut(string path, http:RequestMessage message, typedesc<TargetType> targetType,
+            string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
-        http:Response|anydata|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
@@ -143,7 +146,7 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     isolated resource function patch [http:PathParamType... path](http:RequestMessage message, map<string|string[]>? headers = (),
-            string? mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
+            string? mediaType = (), typedesc<TargetType> targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction",
         name: "patchResource"
     } external;
@@ -158,18 +161,18 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     remote isolated function patch(string path, http:RequestMessage message, map<string|string[]>? headers = (),
-            string? mediaType = (), http:TargetType targetType = <>)
+            string? mediaType = (), typedesc<TargetType> targetType = <>)
             returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
-    private isolated function processPatch(string path, http:RequestMessage message, http:TargetType targetType,
-            string? mediaType, map<string|string[]>? headers) returns http:Response|anydata|ClientError {
+    private isolated function processPatch(string path, http:RequestMessage message, typedesc<TargetType> targetType,
+            string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
-        http:Response|anydata|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
@@ -190,7 +193,7 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     isolated resource function delete [http:PathParamType... path](http:RequestMessage message = (), map<string|string[]>? headers = (),
-            string? mediaType = (), http:TargetType targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
+            string? mediaType = (), typedesc<TargetType> targetType = <>, *http:QueryParams params) returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction",
         name: "deleteResource"
     } external;
@@ -205,18 +208,18 @@ public client isolated class Client {
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
     remote isolated function delete(string path, http:RequestMessage message = (),
-            map<string|string[]>? headers = (), string? mediaType = (), http:TargetType targetType = <>)
+            map<string|string[]>? headers = (), string? mediaType = (), typedesc<TargetType> targetType = <>)
             returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
-    private isolated function processDelete(string path, http:RequestMessage message, http:TargetType targetType,
-            string? mediaType, map<string|string[]>? headers) returns http:Response|anydata|ClientError {
+    private isolated function processDelete(string path, http:RequestMessage message, typedesc<TargetType> targetType,
+            string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
-        http:Response|anydata|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
@@ -255,7 +258,7 @@ public client isolated class Client {
     # + params - The query parameters
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
-    isolated resource function get [http:PathParamType... path](map<string|string[]>? headers = (), http:TargetType targetType = <>,
+    isolated resource function get [http:PathParamType... path](map<string|string[]>? headers = (), typedesc<TargetType> targetType = <>,
             *http:QueryParams params) returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction",
         name: "getResource"
@@ -268,13 +271,13 @@ public client isolated class Client {
     # + targetType - HTTP response or `anydata`, which is expected to be returned after data binding
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
-    remote isolated function get(string path, map<string|string[]>? headers = (), http:TargetType targetType = <>)
+    remote isolated function get(string path, map<string|string[]>? headers = (), typedesc<TargetType> targetType = <>)
             returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
-    private isolated function processGet(string path, map<string|string[]>? headers, http:TargetType targetType)
-            returns http:Response|anydata|error {
+    private isolated function processGet(string path, map<string|string[]>? headers, typedesc<TargetType> targetType)
+            returns TargetType|error {
         map<string|string[]> headersModified = headers ?: {};
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         return self.httpClient->get(path, headersModified, targetType);
@@ -288,7 +291,7 @@ public client isolated class Client {
     # + params - The query parameters
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
-    isolated resource function options [http:PathParamType... path](map<string|string[]>? headers = (), http:TargetType targetType = <>,
+    isolated resource function options [http:PathParamType... path](map<string|string[]>? headers = (), typedesc<TargetType> targetType = <>,
             *http:QueryParams params) returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction",
         name: "optionsResource"
@@ -301,13 +304,13 @@ public client isolated class Client {
     # + targetType - HTTP response or `anydata`, which is expected to be returned after data binding
     # + return - The response or the payload (if the `targetType` is configured) or an `sap:ClientError` if failed to
     # establish the communication with the upstream server or a data binding failure
-    remote isolated function options(string path, map<string|string[]>? headers = (), http:TargetType targetType = <>)
+    remote isolated function options(string path, map<string|string[]>? headers = (), typedesc<TargetType> targetType = <>)
             returns targetType|ClientError = @java:Method {
         'class: "io.ballerina.lib.sap.ClientAction"
     } external;
 
-    private isolated function processOptions(string path, map<string|string[]>? headers, http:TargetType targetType)
-            returns http:Response|anydata|ClientError {
+    private isolated function processOptions(string path, map<string|string[]>? headers, typedesc<TargetType> targetType)
+            returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         return self.httpClient->options(path, headersModified, targetType);
@@ -336,7 +339,7 @@ public client isolated class Client {
     }
 }
 
-isolated function isCSRFTokenFailure(http:Response|anydata|ClientError response) returns boolean {
+isolated function isCSRFTokenFailure(TargetType|ClientError response) returns boolean {
     if response is http:Response {
         if response.statusCode == http:STATUS_FORBIDDEN {
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
