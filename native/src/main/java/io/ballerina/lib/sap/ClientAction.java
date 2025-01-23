@@ -18,10 +18,8 @@
 package io.ballerina.lib.sap;
 
 import io.ballerina.runtime.api.Environment;
-import io.ballerina.runtime.api.Future;
-import io.ballerina.runtime.api.PredefinedTypes;
-import io.ballerina.runtime.api.TypeTags;
-import io.ballerina.runtime.api.async.Callback;
+import io.ballerina.runtime.api.concurrent.StrandMetadata;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
@@ -110,11 +108,9 @@ public class ClientAction {
     }
 
     public static Object headResource(Environment env, BObject client, BArray path, Object headers, BMap params) {
-        Object[] paramFeed = new Object[4];
+        Object[] paramFeed = new Object[2];
         paramFeed[0] = constructRequestPath(path, params);
-        paramFeed[1] = true;
-        paramFeed[2] = headers;
-        paramFeed[3] = true;
+        paramFeed[1] = headers;
         return invokeClientMethod(env, client, "head", paramFeed);
     }
 
@@ -130,51 +126,36 @@ public class ClientAction {
 
     private static Object invokeClientMethod(Environment env, BObject client, BString path, Object message,
                                              BTypedesc targetType, String methodName) {
-        Object[] paramFeed = new Object[6];
+        Object[] paramFeed = new Object[3];
         paramFeed[0] = path;
-        paramFeed[1] = true;
-        paramFeed[2] = message;
-        paramFeed[3] = true;
-        paramFeed[4] = targetType;
-        paramFeed[5] = true;
+        paramFeed[1] = message;
+        paramFeed[2] = targetType;
         return invokeClientMethod(env, client, methodName, paramFeed);
     }
 
     private static Object invokeClientMethod(Environment env, BObject client, BString path, Object message,
                                              Object mediaType, Object headers, BTypedesc targetType,
                                              String methodName) {
-        Object[] paramFeed = new Object[10];
+        Object[] paramFeed = new Object[5];
         paramFeed[0] = path;
-        paramFeed[1] = true;
-        paramFeed[2] = message;
-        paramFeed[3] = true;
-        paramFeed[4] = targetType;
-        paramFeed[5] = true;
-        paramFeed[6] = mediaType;
-        paramFeed[7] = true;
-        paramFeed[8] = headers;
-        paramFeed[9] = true;
+        paramFeed[1] = message;
+        paramFeed[2] = targetType;
+        paramFeed[3] = mediaType;
+        paramFeed[4] = headers;
         return invokeClientMethod(env, client, methodName, paramFeed);
     }
 
     private static Object invokeClientMethod(Environment env, BObject client, String methodName, Object[] paramFeed) {
-        Future balFuture = env.markAsync();
-        Map<String, Object> propertyMap = getPropertiesToPropagate(env);
-        env.getRuntime().invokeMethodAsync(client, methodName, null, null, new Callback() {
-            @Override
-            public void notifySuccess(Object result) {
-                balFuture.complete(result);
+        return env.yieldAndRun(() -> {
+            try {
+                Map<String, Object> propertyMap = getPropertiesToPropagate(env);
+                StrandMetadata strandMetadata = new StrandMetadata(false, propertyMap);
+                return env.getRuntime().callMethod(client, methodName, strandMetadata, paramFeed);
+            } catch (BError bError) {
+                return HttpUtil.createHttpError("client method invocation failed: " + bError.getErrorMessage(),
+                        HttpErrorType.CLIENT_ERROR, bError);
             }
-
-            @Override
-            public void notifyFailure(BError bError) {
-                BError invocationError =
-                        HttpUtil.createHttpError("client method invocation failed: " + bError.getErrorMessage(),
-                                HttpErrorType.CLIENT_ERROR, bError);
-                balFuture.complete(invocationError);
-            }
-        }, propertyMap, PredefinedTypes.TYPE_NULL, paramFeed);
-        return null;
+        });
     }
 
     private static Map<String, Object> getPropertiesToPropagate(Environment env) {
@@ -187,8 +168,8 @@ public class ClientAction {
                 subMap.put(key, value);
             }
         }
-        String strandParentFunctionName = Objects.isNull(env.getStrandMetadata()) ? null :
-                env.getStrandMetadata().getParentFunctionName();
+        String strandParentFunctionName = Objects.isNull(env.getStrandName()) ? null :
+                env.getStrandName();
         if (Objects.nonNull(strandParentFunctionName) && strandParentFunctionName.equals("onMessage")) {
             subMap.put(MAIN_STRAND, true);
         }
