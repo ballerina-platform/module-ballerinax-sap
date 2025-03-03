@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Release on top of Update 11, Add Java 21 Support
+
 ## [1.1.0] - 23/08/2024
 
 ### Changed
