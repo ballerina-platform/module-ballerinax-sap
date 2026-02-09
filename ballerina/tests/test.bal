@@ -27,6 +27,8 @@ Client sapClient = check new (
     }
 );
 
+http:Client mockTriggerClient = check new ("http://localhost:9093/API_SALES_ORDER_SRV");
+
 @test:Config {}
 function testTokenFetch() returns error? {
     http:Response response = check sapClient->post("/A_SalesOrder", "testPayload");
@@ -37,9 +39,10 @@ function testTokenFetch() returns error? {
     dependsOn: [testTokenFetch]
 }
 function testTokenRefreshAfterExpiry() returns error? {
+    // Trigger token expiry on the mock server
+    _ = check mockTriggerClient->post("/triggerTokenExpiry", ());
+    // This POST will fail with 403, then the client should fetch a new token and retry
     http:Response response = check sapClient->post("/A_SalesOrder", "testPayload");
-    test:assertEquals(response.statusCode, 200, "Status code should be 200");
-    response = check sapClient->post("/A_SalesOrder", "testPayload");
     test:assertEquals(response.statusCode, 200, "Status code should be 200");
 }
 
