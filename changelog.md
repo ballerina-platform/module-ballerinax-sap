@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-### Changed
+- Depends on 2201.13.0 distribution
+
+### Fixed
+- [Fix Wrong HTTP method on retry for CSRF token failure](https://github.com/ballerina-platform/ballerina-library/issues/8640)
+- [Fix CSRF token refresh fails for request with databinding](https://github.com/ballerina-platform/ballerina-library/issues/8641)
 
 ## [1.2.0] - 03/03/2025
 
