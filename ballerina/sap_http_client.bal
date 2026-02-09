@@ -129,7 +129,7 @@ public client isolated class Client {
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->put(path, message, headersModified, mediaType, targetType);
         }
         return response;
 
@@ -176,7 +176,7 @@ public client isolated class Client {
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         }
         return response;
 
@@ -223,7 +223,7 @@ public client isolated class Client {
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         }
         return response;
 
@@ -344,6 +344,16 @@ isolated function isCSRFTokenFailure(TargetType|ClientError response) returns bo
         if response.statusCode == http:STATUS_FORBIDDEN {
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
             if header is string && header.equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE) {
+                return true;
+            }
+        }
+    } else if response is http:ClientRequestError {
+        var detail = response.detail();
+        if detail.statusCode == http:STATUS_FORBIDDEN {
+            map<string[]> headers = detail.headers;
+            string[]? csrfHeader = headers[SAP_CSRF_HEADER] ?: headers[SAP_CSRF_HEADER.toLowerAscii()];
+            if csrfHeader is string[] && csrfHeader.length() > 0 &&
+                    csrfHeader[0].equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE) {
                 return true;
             }
         }
