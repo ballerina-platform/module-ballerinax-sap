@@ -20,6 +20,7 @@ service /API_SALES_ORDER_SRV on new http:Listener(9093) {
     int headCount = 0;
     int postCount = 0;
     int jsonPostCount = 0;
+    int recordPostCount = 0;
 
     resource function head .() returns http:Response {
         http:Response res = new;
@@ -113,6 +114,20 @@ service /API_SALES_ORDER_SRV on new http:Listener(9093) {
             res.setPayload({orderId: "12345", status: "Created"});
         }
         self.jsonPostCount = self.jsonPostCount + 1;
+        return res;
+    }
+
+    resource function post A_RecordOrder(http:Request req) returns http:Response {
+        http:Response res = new;
+        if self.recordPostCount == 0 {
+            res.statusCode = 403;
+            res.addHeader("X-CSRF-TOKEN", "Required");
+            res.setPayload({message: "CSRF token validation failed"});
+        } else {
+            res.statusCode = 200;
+            res.setPayload({SalesOrder: "12345", SalesOrderType: "OR", SoldToParty: "17100001"});
+        }
+        self.recordPostCount = self.recordPostCount + 1;
         return res;
     }
 
