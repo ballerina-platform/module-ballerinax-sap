@@ -17,16 +17,20 @@ import ballerina/http;
 
 service /API_SALES_ORDER_SRV on new http:Listener(9093) {
 
-    int tokenVersion = 0;
-    boolean rejectNextPost = false;
+    int headCount = 0;
+    int postCount = 0;
+    int jsonPostCount = 0;
 
     resource function head .() returns http:Response {
         http:Response res = new;
-        self.tokenVersion = self.tokenVersion + 1;
-        string token = string `token${self.tokenVersion}`;
-        res.setHeader("X-CSRF-TOKEN", token);
-        http:Cookie cookie = new http:Cookie("session", string `session${self.tokenVersion}`, {path: "/"});
-        res.addCookie(cookie);
+        if self.headCount == 0 {
+            http:Cookie cookie1 = new http:Cookie("session", "session1", {path: "/"});
+            res.setHeader("X-CSRF-TOKEN", "token1");
+            res.addCookie(cookie1);
+        } else {
+            res.setHeader("X-CSRF-TOKEN", "token2");
+        }
+        self.headCount = self.headCount + 1;
         return res;
     }
 
@@ -60,22 +64,55 @@ service /API_SALES_ORDER_SRV on new http:Listener(9093) {
     }
 
     resource function post A_SalesOrder(http:Request req) returns http:Response {
+        http:Cookie[] cookies = req.getCookies();
         http:Response res = new;
-        if self.rejectNextPost {
-            self.rejectNextPost = false;
-            res.statusCode = 403;
-            res.addHeader("X-CSRF-TOKEN", "Required");
+        if self.postCount == 0 {
+            if cookies.length() == 1 && cookies[0].name == "session" && cookies[0].value == "session1" {
+                res.statusCode = 200;
+                res.setPayload("Sales Order Created");
+            } else {
+                res.statusCode = 403;
+            }
+        } else if self.postCount == 1 {
+            if cookies.length() == 1 && cookies[0].name == "session" && cookies[0].value == "session1" {
+                res.statusCode = 200;
+            } else {
+                res.statusCode = 403;
+                res.addHeader("X-CSRF-TOKEN", "Required");
+                res.addCookie(new http:Cookie("session", "session1", {path: "/"}));
+            }
+        } else if self.postCount == 2 {
+            if cookies.length() == 1 && cookies[0].name == "session" && cookies[0].value == "session1" {
+                res.statusCode = 403;
+                res.addHeader("X-CSRF-TOKEN", "Required");
+                res.addCookie(new http:Cookie("session", "session2", {path: "/"}));
+            } else {
+                res.statusCode = 400;
+            }
         } else {
-            res.statusCode = 200;
-            res.setPayload("Sales Order Created");
+            if cookies.length() == 1 && cookies[0].name == "session" && cookies[0].value == "session2" {
+                res.statusCode = 200;
+                res.setPayload("Sales Order Created");
+            } else {
+                res.statusCode = 403;
+                res.addHeader("X-CSRF-TOKEN", "Required");
+            }
         }
+        self.postCount = self.postCount + 1;
         return res;
     }
 
-    resource function post triggerTokenExpiry(http:Request req) returns http:Response {
-        self.rejectNextPost = true;
+    resource function post A_JsonOrder(http:Request req) returns http:Response {
         http:Response res = new;
-        res.statusCode = 200;
+        if self.jsonPostCount == 0 {
+            res.statusCode = 403;
+            res.addHeader("X-CSRF-TOKEN", "Required");
+            res.setPayload({message: "CSRF token validation failed"});
+        } else {
+            res.statusCode = 200;
+            res.setPayload({orderId: "12345", status: "Created"});
+        }
+        self.jsonPostCount = self.jsonPostCount + 1;
         return res;
     }
 

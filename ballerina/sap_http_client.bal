@@ -25,6 +25,7 @@ public type TargetType http:Response|anydata;
 public client isolated class Client {
 
     final http:Client httpClient;
+    private string? csrfToken = ();
 
     # Gets invoked to initialize the `client`. During initialization, the configurations provided through the `config`
     # record is used to determine which type of additional behaviours are added to the endpoint (e.g.
@@ -80,7 +81,7 @@ public client isolated class Client {
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->post(path, message, headersModified, mediaType, targetType);
         }
@@ -126,7 +127,7 @@ public client isolated class Client {
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->put(path, message, headersModified, mediaType, targetType);
         }
@@ -173,7 +174,7 @@ public client isolated class Client {
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         }
@@ -220,7 +221,7 @@ public client isolated class Client {
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         }
@@ -315,16 +316,26 @@ public client isolated class Client {
         return self.httpClient->options(path, headersModified, targetType);
     }
 
-    isolated function fetchCSRFTokenForModifyingRequest() returns string|CSRFTokenFetchFailure {
-        map<string|string[]> headersModified = {};
-        headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
-        http:Response response = check self.httpClient->head("/", headersModified);
-        string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
-        if header is string {
-            return header;
-        } else {
-            return error CSRFTokenFetchFailure("CSRF token not found", header);
+    isolated function fetchCSRFTokenForModifyingRequest(boolean refreshToken = false) returns string|CSRFTokenFetchFailure {
+        string? csrfToken = ();
+        lock {
+            csrfToken = self.csrfToken;
         }
+        if csrfToken is () || refreshToken {
+            map<string|string[]> headersModified = {};
+            headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
+            http:Response response = check self.httpClient->head("/", headersModified);
+            string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
+            if header is string {
+                lock {
+                    self.csrfToken = header;
+                }
+                return header;
+            } else {
+                return error CSRFTokenFetchFailure("CSRF token not found", header);
+            }
+        }
+        return csrfToken;
     }
 }
 
