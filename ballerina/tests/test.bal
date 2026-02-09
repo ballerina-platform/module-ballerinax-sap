@@ -46,6 +46,25 @@ function testTokenRefreshAfterExpiry() returns error? {
 @test:Config {
     dependsOn: [testTokenRefreshAfterExpiry]
 }
+function testTokenRefreshWithJsonTargetType() returns error? {
+    json response = check sapClient->post("/A_JsonOrder", "testPayload");
+    test:assertEquals(response, {orderId: "12345", status: "Created"});
+}
+
+@test:Config {
+    dependsOn: [testTokenRefreshWithJsonTargetType]
+}
+function testTokenRefreshWithRecordTargetType() returns error? {
+    record {|string SalesOrder; string SalesOrderType; string SoldToParty;|} response =
+        check sapClient->post("/A_RecordOrder", "testPayload");
+    test:assertEquals(response.SalesOrder, "12345");
+    test:assertEquals(response.SalesOrderType, "OR");
+    test:assertEquals(response.SoldToParty, "17100001");
+}
+
+@test:Config {
+    dependsOn: [testTokenRefreshWithRecordTargetType]
+}
 function testPostRemote() returns error? {
     http:Response response = check sapClient->/A_SalesOrder.post("testPayload");
     test:assertEquals(response.statusCode, 200, "Status code should be 200");
