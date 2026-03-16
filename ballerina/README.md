@@ -1,13 +1,15 @@
 ## Overview
 
-[SAP](https://www.sap.com/india/index.html) is a global leader in enterprise resource planning (ERP) software. Beyond
-ERP, SAP offers a diverse range of solutions including human capital management (HCM), customer relationship
-management (CRM), enterprise performance management (EPM), product lifecycle management (PLM), supplier relationship
-management (SRM), supply chain management (SCM), business technology platform (BTP), and the SAP AppGyver programming
-environment for businesses.
+[SAP](https://www.sap.com/index.html) is a global leader in enterprise resource planning (ERP) software. Beyond ERP, SAP offers a diverse range of solutions including human capital management (HCM), customer relationship management (CRM), enterprise performance management (EPM), product lifecycle management (PLM), supplier relationship management (SRM), supply chain management (SCM), and business technology platform (BTP).
 
-The `ballerinax/sap` package provides an `HTTP` client for interfacing with APIs across SAP's product suite. This client
-comes with built-in SAP system-complient CSRF token authentication.
+The SAP connector provides an HTTP client for interfacing with APIs across SAP's product suite. This client comes with built-in SAP system-compliant CSRF token authentication.
+
+### Key Features
+
+- Built-in CSRF token authentication support
+- Seamless integration with various SAP product APIs
+- Efficient handling of HTTP-based SAP service communications
+- Support for complex SAP business object interactions
 
 ## Setup guide
 
