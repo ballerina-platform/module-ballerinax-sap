@@ -20,6 +20,53 @@ import ballerina/mime;
 # The `sap` client return type for the HTTP client actions.
 public type TargetType http:Response|anydata;
 
+# Configurations for initializing an `sap:Client`. Mirrors `http:ClientConfiguration` field for
+# field (record type inclusion can't be used here: it only allows narrowing an included field's
+# type, and `auth` needs to be widened instead), except `auth` also accepts `SamlBearerAuthConfig`
+# for SAP's OAuth 2.0 SAML Bearer Assertion Flow, alongside the usual Basic Auth
+# (`http:CredentialsConfig`) and other `http:ClientAuthConfig` variants.
+public type ConnectionConfig record {|
+    # Configurations related to client authentication
+    http:ClientAuthConfig|SamlBearerAuthConfig auth;
+    # The HTTP version understood by the client
+    http:HttpVersion httpVersion = http:HTTP_2_0;
+    # Configurations related to HTTP/1.x protocol
+    http:ClientHttp1Settings http1Settings = {};
+    # Configurations related to HTTP/2 protocol
+    http:ClientHttp2Settings http2Settings = {};
+    # The maximum time to wait (in seconds) for a response before closing the connection
+    decimal timeout = 30;
+    # The choice of setting `forwarded`/`x-forwarded` header
+    string forwarded = "disable";
+    # Configurations associated with Redirection
+    http:FollowRedirects followRedirects?;
+    # Configurations associated with request pooling
+    http:PoolConfiguration poolConfig?;
+    # HTTP caching related configurations
+    http:CacheConfig cache = {};
+    # Specifies the way of handling compression (`accept-encoding`) header
+    http:Compression compression = http:COMPRESSION_AUTO;
+    # Configurations associated with the behaviour of the Circuit Breaker
+    http:CircuitBreakerConfig circuitBreaker?;
+    # Configurations associated with retrying
+    http:RetryConfig retryConfig?;
+    # Configurations associated with cookies
+    http:CookieConfig cookieConfig?;
+    # Configurations associated with inbound response size limits
+    http:ResponseLimitConfigs responseLimits = {};
+    # SSL/TLS-related options
+    http:ClientSecureSocket secureSocket?;
+    # Proxy server related options
+    http:ProxyConfig proxy?;
+    # Provides settings related to client socket configuration
+    http:ClientSocketConfig socketConfig = {};
+    # Enables the inbound payload validation functionality which provided by the constraint package. Enabled by default
+    boolean validation = true;
+    # Enables relaxed data binding on the client side. When enabled, `nil` values are treated as optional,
+    # and absent fields are handled as `nilable` types. Enabled by default.
+    boolean laxDataBinding = true;
+|};
+
 # The `sap` client provides the capability for initiating contact with a remote HTTP service provided by any SAP products. The API it
 # provides includes the functions for the standard HTTP methods.
 public client isolated class Client {
@@ -31,14 +78,51 @@ public client isolated class Client {
     # record is used to determine which type of additional behaviours are added to the endpoint (e.g.
     # security, circuit breaking). Caching is enabled always.
     #
+    # If `config.auth` is a `SamlBearerAuthConfig`, an OAuth 2.0 access token is obtained via the SAML
+    # Bearer Assertion Flow before the underlying HTTP client is created. **That token is not
+    # refreshed automatically** - the token endpoint's own `expires_in` (commonly around 24 hours for
+    # SuccessFactors) is the client's effective lifetime. For a long-running integration, reconstruct
+    # this `Client` (a cheap operation - it just repeats the assertion build/sign/exchange) before
+    # that window lapses, or after observing an authentication failure from the underlying service.
+    #
     # + url - URL of the target service
     # + config - The configurations to be used when initializing the `client`
     # + return - The `client` or an `sap:ClientError` if the initialization failed
-    public isolated function init(string url, http:ClientConfiguration config) returns ClientError? {
-        config.cookieConfig = {
-            enabled: true
-        };
-        self.httpClient = check new (url, config);
+    public isolated function init(string url, ConnectionConfig config) returns ClientError? {
+        do {
+            http:ClientAuthConfig resolvedAuth;
+            if config.auth is SamlBearerAuthConfig {
+                SamlBearerToken token = check getSamlBearerAccessToken(<SamlBearerAuthConfig>config.auth);
+                resolvedAuth = {token: token.accessToken};
+            } else {
+                resolvedAuth = <http:ClientAuthConfig>config.auth;
+            }
+            http:ClientConfiguration httpConfig = {
+                auth: resolvedAuth,
+                httpVersion: config.httpVersion,
+                http1Settings: config.http1Settings,
+                http2Settings: config.http2Settings,
+                timeout: config.timeout,
+                forwarded: config.forwarded,
+                followRedirects: config.followRedirects,
+                poolConfig: config.poolConfig,
+                cache: config.cache,
+                compression: config.compression,
+                circuitBreaker: config.circuitBreaker,
+                retryConfig: config.retryConfig,
+                cookieConfig: config.cookieConfig,
+                responseLimits: config.responseLimits,
+                secureSocket: config.secureSocket,
+                proxy: config.proxy,
+                socketConfig: config.socketConfig,
+                validation: config.validation,
+                laxDataBinding: config.laxDataBinding
+            };
+            httpConfig.cookieConfig = {enabled: true};
+            self.httpClient = check new (url, httpConfig);
+        } on fail error e {
+            return error ClientError("Failed to initialize the SAP client", e);
+        }
         return;
     }
 
