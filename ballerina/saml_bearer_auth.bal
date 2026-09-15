@@ -45,13 +45,24 @@ public type SamlBearerAuthConfig record {|
     decimal validityPeriod = 300;
 |};
 
+# An OAuth 2.0 access token obtained via the SAML Bearer flow, along with how long it is valid
+# for, so callers can tell when it needs to be refreshed.
+public type SamlBearerToken record {|
+    # The OAuth 2.0 access token, for use as `http:BearerTokenConfig`
+    string accessToken;
+    # How long the access token is valid for, in seconds, as reported by the token endpoint
+    # (defaults to 3600 if the endpoint did not include an `expires_in` field)
+    decimal expiresIn = 3600;
+|};
+
 # Obtains an OAuth 2.0 access token from an SAP tenant using the SAML 2.0 Bearer Assertion Flow
 # ([RFC 7522](https://www.rfc-editor.org/rfc/rfc7522)).
 #
 # Builds a SAML 2.0 assertion, signs it with the configured private key (RSA-SHA256 over an
 # Exclusive XML Canonicalized enveloped signature), and exchanges it at the tenant's OAuth2
 # token endpoint for a Bearer access token, which can then be used as `http:BearerTokenConfig`
-# for subsequent requests.
+# for subsequent requests. The token is not refreshed automatically - callers that hold onto a
+# long-lived client should track `expiresIn` and call this again before it lapses.
 #
 # ```ballerina
 # sap:SamlBearerAuthConfig authConfig = {
@@ -62,13 +73,13 @@ public type SamlBearerAuthConfig record {|
 #     certificate: check io:fileReadString("client_cert.pem"),
 #     tokenUrl: "https://<admin-center-host>/oauth/token"
 # };
-# string accessToken = check sap:getSamlBearerAccessToken(authConfig);
+# sap:SamlBearerToken token = check sap:getSamlBearerAccessToken(authConfig);
 # ```
 #
 # + config - The SAML Bearer authentication configuration
-# + return - The OAuth 2.0 access token, or an `sap:ClientError` if assertion building, signing,
-# or the token exchange failed
-public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config) returns string|ClientError {
+# + return - The OAuth 2.0 access token and its lifetime, or an `sap:ClientError` if assertion
+# building, signing, or the token exchange failed
+public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config) returns SamlBearerToken|ClientError {
     do {
         crypto:PrivateKey privateKey = config.privateKey is string
             ? check crypto:decodeRsaPrivateKeyFromKeyFile(<string>config.privateKey)
@@ -107,7 +118,15 @@ public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config) r
         if response.statusCode < 200 || response.statusCode >= 300 {
             return error ClientError("SAML Bearer token exchange failed", statusCode = response.statusCode, body = payload);
         }
-        return check payload.access_token.ensureType(string);
+        string accessToken = check payload.access_token.ensureType(string);
+        decimal expiresIn = 3600;
+        json|error expiresInField = payload.expires_in;
+        if expiresInField is int {
+            expiresIn = <decimal>expiresInField;
+        } else if expiresInField is decimal {
+            expiresIn = expiresInField;
+        }
+        return {accessToken, expiresIn};
     } on fail error e {
         return error ClientError("Failed to obtain an OAuth2 access token via the SAML Bearer flow", e);
     }

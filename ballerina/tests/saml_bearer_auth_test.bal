@@ -68,8 +68,9 @@ function testGetSamlBearerAccessTokenReturnsAccessToken() returns error? {
         tokenUrl: "http://localhost:9094/oauth/token"
     };
 
-    string accessToken = check getSamlBearerAccessToken(config);
-    test:assertEquals(accessToken, "mock-access-token-value");
+    SamlBearerToken token = check getSamlBearerAccessToken(config);
+    test:assertEquals(token.accessToken, "mock-access-token-value");
+    test:assertEquals(token.expiresIn, <decimal>86400);
 }
 
 @test:Config {
