@@ -21,36 +21,13 @@ import ballerina/time;
 import ballerina/url;
 import ballerina/uuid;
 
-# Obtains an OAuth 2.0 access token from an SAP tenant using the SAML 2.0 Bearer Assertion Flow
-# ([RFC 7522](https://www.rfc-editor.org/rfc/rfc7522)).
-#
-# Builds a SAML 2.0 assertion, signs it with the configured private key (RSA-SHA256 over an
-# Exclusive XML Canonicalized enveloped signature), and exchanges it at the tenant's OAuth2
-# token endpoint for a Bearer access token, which can then be used as `http:BearerTokenConfig`
-# for subsequent requests. The token is not refreshed automatically - callers that hold onto a
-# long-lived client should track `expiresIn` and call this again before it lapses.
-#
-# ```ballerina
-# sap:SamlBearerAuthConfig authConfig = {
-#     apiKey: "<API Key from the registered OAuth2 client application>",
-#     companyId: "<company ID>",
-#     username: "<user to authenticate as>",
-#     privateKey: check crypto:decodeRsaPrivateKeyFromKeyFile("client_private_key.pem"),
-#     certificate: check io:fileReadString("client_cert.pem"),
-#     tokenUrl: "https://<admin-center-host>/oauth/token"
-# };
-# sap:SamlBearerToken token = check sap:getSamlBearerAccessToken(authConfig);
-# ```
-#
-# + config - The SAML Bearer authentication configuration
-# + secureSocket - TLS/mTLS configuration to use for the token exchange call - pass the same
-# `secureSocket` given to the surrounding `sap:Client` when the token endpoint sits behind a
-# custom/private CA, so the token exchange trusts it the same way the main API calls do
-# + proxy - Proxy server configuration to use for the token exchange call - pass the same `proxy`
-# given to the surrounding `sap:Client` if outbound traffic must go through a corporate proxy
-# + return - The OAuth 2.0 access token and its lifetime, or an `sap:ClientError` if assertion
-# building, signing, or the token exchange failed
-public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:ClientSecureSocket? secureSocket = (),
+# Obtains an OAuth 2.0 access token via the SAML 2.0 Bearer Assertion Flow
+# ([RFC 7522](https://www.rfc-editor.org/rfc/rfc7522)): builds a SAML assertion, signs it, and
+# exchanges it at the tenant's OAuth2 token endpoint. Invoked by `Client` on demand (on init and
+# whenever a request comes back `401`) - `secureSocket`/`proxy` are the same values the calling
+# `Client` was configured with, so the token exchange trusts/routes the same way its other
+# requests do.
+isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:ClientSecureSocket? secureSocket = (),
         http:ProxyConfig? proxy = ()) returns SamlBearerToken|ClientError {
     do {
         crypto:PrivateKey privateKey = config.privateKey is string

@@ -45,12 +45,9 @@ public type SamlBearerAuthConfig record {|
 |};
 
 # An OAuth 2.0 access token obtained via the SAML Bearer flow, along with how long it is valid
-# for, so callers can tell when it needs to be refreshed.
-public type SamlBearerToken record {|
-    # The OAuth 2.0 access token, for use as `http:BearerTokenConfig`
+# for. Internal to Client's token caching/refresh - never returned across the package boundary.
+type SamlBearerToken record {|
     string accessToken;
-    # How long the access token is valid for, in seconds, as reported by the token endpoint
-    # (defaults to 3600 if the endpoint did not include an `expires_in` field)
     decimal expiresIn = 3600;
 |};
 
