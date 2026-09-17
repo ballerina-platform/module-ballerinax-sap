@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Depends on 2201.13.0 distribution
+- Add OAuth 2.0 SAML Bearer Assertion Flow support (`SamlBearerAuthConfig`) as an alternative to Basic Auth
 
 ### Fixed
 - [Fix Wrong HTTP method on retry for CSRF token failure](https://github.com/ballerina-platform/ballerina-library/issues/8640)
