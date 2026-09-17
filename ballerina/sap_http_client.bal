@@ -76,6 +76,8 @@ public client isolated class Client {
     private string? csrfToken = ();
     private final (readonly & SamlBearerAuthConfig)? samlAuthConfig;
     private string? samlAccessToken = ();
+    private final (readonly & http:ClientSecureSocket)? samlTokenSecureSocket;
+    private final (readonly & http:ProxyConfig)? samlTokenProxy;
 
     # Gets invoked to initialize the `client`. During initialization, the configurations provided through the `config`
     # record is used to determine which type of additional behaviours are added to the endpoint (e.g.
@@ -95,6 +97,10 @@ public client isolated class Client {
     # silently drops it). Pass the key file path instead; it is decoded fresh each time a token is
     # obtained.
     #
+    # The token exchange call to `SamlBearerAuthConfig.tokenUrl` reuses this client's own
+    # `secureSocket` and `proxy` settings, so a custom/private CA trust or a required corporate
+    # proxy applies to it the same way it applies to every other request this client makes.
+    #
     # + url - URL of the target service
     # + config - The configurations to be used when initializing the `client`
     # + return - The `client` or an `sap:ClientError` if the initialization failed
@@ -110,8 +116,12 @@ public client isolated class Client {
                         "a decoded key across requests. Pass the private key file path instead.");
                 }
                 self.samlAuthConfig = samlConfig.cloneReadOnly();
+                self.samlTokenSecureSocket = config.secureSocket.cloneReadOnly();
+                self.samlTokenProxy = config.proxy.cloneReadOnly();
             } else {
                 self.samlAuthConfig = ();
+                self.samlTokenSecureSocket = ();
+                self.samlTokenProxy = ();
                 resolvedAuth = <http:ClientAuthConfig>config.auth;
             }
             http:ClientConfiguration httpConfig = {
@@ -161,7 +171,7 @@ public client isolated class Client {
             token = self.samlAccessToken;
         }
         if token is () || refresh {
-            SamlBearerToken freshToken = check getSamlBearerAccessToken(samlConfig);
+            SamlBearerToken freshToken = check getSamlBearerAccessToken(samlConfig, self.samlTokenSecureSocket, self.samlTokenProxy);
             token = freshToken.accessToken;
             lock {
                 self.samlAccessToken = freshToken.accessToken;

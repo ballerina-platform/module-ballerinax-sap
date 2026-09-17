@@ -77,9 +77,15 @@ public type SamlBearerToken record {|
 # ```
 #
 # + config - The SAML Bearer authentication configuration
+# + secureSocket - TLS/mTLS configuration to use for the token exchange call - pass the same
+# `secureSocket` given to the surrounding `sap:Client` when the token endpoint sits behind a
+# custom/private CA, so the token exchange trusts it the same way the main API calls do
+# + proxy - Proxy server configuration to use for the token exchange call - pass the same `proxy`
+# given to the surrounding `sap:Client` if outbound traffic must go through a corporate proxy
 # + return - The OAuth 2.0 access token and its lifetime, or an `sap:ClientError` if assertion
 # building, signing, or the token exchange failed
-public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config) returns SamlBearerToken|ClientError {
+public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:ClientSecureSocket? secureSocket = (),
+        http:ProxyConfig? proxy = ()) returns SamlBearerToken|ClientError {
     do {
         crypto:PrivateKey privateKey = config.privateKey is string
             ? check crypto:decodeRsaPrivateKeyFromKeyFile(<string>config.privateKey)
@@ -107,7 +113,7 @@ public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config) r
         string signedAssertion = check signAssertion(assertionXml, assertionId, certificateBase64, privateKey);
         string assertionBase64 = signedAssertion.toBytes().toBase64();
 
-        http:Client tokenClient = check new (config.tokenUrl);
+        http:Client tokenClient = check new (config.tokenUrl, {secureSocket, proxy});
         string requestBody = string `client_id=${check url:encode(config.clientId, "UTF-8")}` +
             string `&company_id=${check url:encode(config.companyId, "UTF-8")}` +
             string `&grant_type=${check url:encode("urn:ietf:params:oauth:grant-type:saml2-bearer", "UTF-8")}` +
