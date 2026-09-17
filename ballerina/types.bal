@@ -26,8 +26,9 @@ public type TargetType http:Response|anydata;
 # Basic Authentication.
 @display {label: "SAML Bearer Auth Config"}
 public type SamlBearerAuthConfig record {|
-    # The API Key of the registered OAuth2 client application (used as the SAML assertion `Issuer`)
-    string clientId;
+    # The API Key of the registered OAuth2 client application, as labelled in Admin Center
+    # (used as the SAML assertion `Issuer` and as the OAuth2 `client_id`)
+    string apiKey;
     # The SAP company/tenant ID
     string companyId;
     # The SAP user to authenticate as (used as the SAML assertion `Subject`/`NameID`)

@@ -60,7 +60,7 @@ function testGetSamlBearerAccessTokenReturnsAccessToken() returns error? {
     string certPem = check io:fileReadString("tests/resources/saml_test_cert.pem");
 
     SamlBearerAuthConfig config = {
-        clientId: "testClientId",
+        apiKey: "testApiKey",
         companyId: "testCompanyId",
         username: "testuser",
         privateKey: privateKey,

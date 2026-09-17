@@ -32,7 +32,7 @@ import ballerina/uuid;
 #
 # ```ballerina
 # sap:SamlBearerAuthConfig authConfig = {
-#     clientId: "<API Key from the registered OAuth2 client application>",
+#     apiKey: "<API Key from the registered OAuth2 client application>",
 #     companyId: "<company ID>",
 #     username: "<user to authenticate as>",
 #     privateKey: check crypto:decodeRsaPrivateKeyFromKeyFile("client_private_key.pem"),
@@ -71,7 +71,7 @@ public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, h
             issueInstant = issueInstant,
             notBefore = notBefore,
             notOnOrAfter = notOnOrAfter,
-            issuer = config.clientId,
+            issuer = config.apiKey,
             subjectNameId = config.username,
             recipient = recipient
         );
@@ -80,7 +80,7 @@ public isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, h
         string assertionBase64 = signedAssertion.toBytes().toBase64();
 
         http:Client tokenClient = check new (config.tokenUrl, {secureSocket, proxy});
-        string requestBody = string `client_id=${check url:encode(config.clientId, "UTF-8")}` +
+        string requestBody = string `client_id=${check url:encode(config.apiKey, "UTF-8")}` +
             string `&company_id=${check url:encode(config.companyId, "UTF-8")}` +
             string `&grant_type=${check url:encode("urn:ietf:params:oauth:grant-type:saml2-bearer", "UTF-8")}` +
             string `&assertion=${check url:encode(assertionBase64, "UTF-8")}`;
