@@ -18,56 +18,6 @@ import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/mime;
 
-# The `sap` client return type for the HTTP client actions.
-public type TargetType http:Response|anydata;
-
-# Configurations for initializing an `sap:Client`. Mirrors `http:ClientConfiguration` field for
-# field (record type inclusion can't be used here: it only allows narrowing an included field's
-# type, and `auth` needs to be widened instead), except `auth` also accepts `SamlBearerAuthConfig`
-# for SAP's OAuth 2.0 SAML Bearer Assertion Flow, alongside the usual Basic Auth
-# (`http:CredentialsConfig`) and other `http:ClientAuthConfig` variants.
-public type ConnectionConfig record {|
-    # Configurations related to client authentication
-    http:ClientAuthConfig|SamlBearerAuthConfig auth;
-    # The HTTP version understood by the client
-    http:HttpVersion httpVersion = http:HTTP_2_0;
-    # Configurations related to HTTP/1.x protocol
-    http:ClientHttp1Settings http1Settings = {};
-    # Configurations related to HTTP/2 protocol
-    http:ClientHttp2Settings http2Settings = {};
-    # The maximum time to wait (in seconds) for a response before closing the connection
-    decimal timeout = 30;
-    # The choice of setting `forwarded`/`x-forwarded` header
-    string forwarded = "disable";
-    # Configurations associated with Redirection
-    http:FollowRedirects followRedirects?;
-    # Configurations associated with request pooling
-    http:PoolConfiguration poolConfig?;
-    # HTTP caching related configurations
-    http:CacheConfig cache = {};
-    # Specifies the way of handling compression (`accept-encoding`) header
-    http:Compression compression = http:COMPRESSION_AUTO;
-    # Configurations associated with the behaviour of the Circuit Breaker
-    http:CircuitBreakerConfig circuitBreaker?;
-    # Configurations associated with retrying
-    http:RetryConfig retryConfig?;
-    # Configurations associated with cookies
-    http:CookieConfig cookieConfig?;
-    # Configurations associated with inbound response size limits
-    http:ResponseLimitConfigs responseLimits = {};
-    # SSL/TLS-related options
-    http:ClientSecureSocket secureSocket?;
-    # Proxy server related options
-    http:ProxyConfig proxy?;
-    # Provides settings related to client socket configuration
-    http:ClientSocketConfig socketConfig = {};
-    # Enables the inbound payload validation functionality which provided by the constraint package. Enabled by default
-    boolean validation = true;
-    # Enables relaxed data binding on the client side. When enabled, `nil` values are treated as optional,
-    # and absent fields are handled as `nilable` types. Enabled by default.
-    boolean laxDataBinding = true;
-|};
-
 # The `sap` client provides the capability for initiating contact with a remote HTTP service provided by any SAP products. The API it
 # provides includes the functions for the standard HTTP methods.
 public client isolated class Client {
@@ -225,7 +175,7 @@ public client isolated class Client {
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -280,7 +230,7 @@ public client isolated class Client {
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -336,7 +286,7 @@ public client isolated class Client {
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -392,7 +342,7 @@ public client isolated class Client {
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -430,7 +380,7 @@ public client isolated class Client {
             headersModified[k] = v;
         }
         http:Response|ClientError response = self.httpClient->head(path, headersModified);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -473,7 +423,7 @@ public client isolated class Client {
         }
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|error response = self.httpClient->get(path, headersModified, targetType);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -516,7 +466,7 @@ public client isolated class Client {
         }
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->options(path, headersModified, targetType);
-        if isAuthFailure(response) {
+        if self.isSAMLAuthFailure(response) {
             foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
                 headersModified[k] = v;
             }
@@ -549,6 +499,29 @@ public client isolated class Client {
         }
         return csrfToken;
     }
+
+    # Whether a response (or the error a generically-bound call failed with) indicates the request
+    # was rejected as unauthorized - the trigger to obtain a fresh SAML Bearer token and retry once.
+    # Always `false` when this client isn't using `SamlBearerAuthConfig`, since there is no SAML
+    # token to refresh and retrying would just repeat the same failed request.
+    #
+    # + response - The response (or error) returned by the underlying `http:Client` call
+    # + return - Whether a SAML Bearer token refresh and retry should be attempted
+    private isolated function isSAMLAuthFailure(TargetType|error response) returns boolean {
+        if self.samlAuthConfig is () {
+            return false;
+        }
+        if response is http:Response {
+            return response.statusCode == http:STATUS_UNAUTHORIZED;
+        }
+        if response is http:ClientRequestError {
+            // Generically-bound (non-http:Response) calls surface a non-2xx status as an error
+            // rather than a value - its detail carries the status code the underlying http:Client
+            // reported.
+            return response.detail().statusCode == http:STATUS_UNAUTHORIZED;
+        }
+        return false;
+    }
 }
 
 isolated function isCSRFTokenFailure(TargetType|ClientError response) returns boolean {
@@ -569,20 +542,6 @@ isolated function isCSRFTokenFailure(TargetType|ClientError response) returns bo
                 return true;
             }
         }
-    }
-    return false;
-}
-
-# Whether a response (or the error a generically-bound call failed with) indicates the request was
-# rejected as unauthorized - the trigger to obtain a fresh SAML Bearer token and retry once.
-isolated function isAuthFailure(TargetType|error response) returns boolean {
-    if response is http:Response {
-        return response.statusCode == http:STATUS_UNAUTHORIZED;
-    }
-    if response is http:ClientRequestError {
-        // Generically-bound (non-http:Response) calls surface a non-2xx status as an error rather
-        // than a value - its detail carries the status code the underlying http:Client reported.
-        return response.detail().statusCode == http:STATUS_UNAUTHORIZED;
     }
     return false;
 }
