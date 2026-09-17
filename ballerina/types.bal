@@ -13,10 +13,45 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+import ballerina/crypto;
 import ballerina/http;
 
 # The `sap` client return type for the HTTP client actions.
 public type TargetType http:Response|anydata;
+
+# Configuration for SAP's OAuth 2.0 SAML Bearer Assertion Flow.
+#
+# Use this when a SuccessFactors (or other SAP) tenant has an OAuth2 client application
+# registered under Admin Center > Manage OAuth2 Client Applications, as an alternative to
+# Basic Authentication.
+@display {label: "SAML Bearer Auth Config"}
+public type SamlBearerAuthConfig record {|
+    # The API Key of the registered OAuth2 client application (used as the SAML assertion `Issuer`)
+    string clientId;
+    # The SAP company/tenant ID
+    string companyId;
+    # The SAP user to authenticate as (used as the SAML assertion `Subject`/`NameID`)
+    string username;
+    # The private key matching the certificate registered with the OAuth2 client application
+    crypto:PrivateKey|string privateKey;
+    # PEM-encoded X.509 certificate matching what was registered with the OAuth2 client application.
+    # Accepts either the certificate content directly, or a file path to it.
+    string certificate;
+    # The OAuth2 token endpoint, typically `https://<admin-center-host>/oauth/token`
+    string tokenUrl;
+    # SAML assertion validity window, in seconds, before/after the time of the request
+    decimal validityPeriod = 300;
+|};
+
+# An OAuth 2.0 access token obtained via the SAML Bearer flow, along with how long it is valid
+# for, so callers can tell when it needs to be refreshed.
+public type SamlBearerToken record {|
+    # The OAuth 2.0 access token, for use as `http:BearerTokenConfig`
+    string accessToken;
+    # How long the access token is valid for, in seconds, as reported by the token endpoint
+    # (defaults to 3600 if the endpoint did not include an `expires_in` field)
+    decimal expiresIn = 3600;
+|};
 
 # Configurations for initializing an `sap:Client`. Mirrors `http:ClientConfiguration` field for
 # field (record type inclusion can't be used here: it only allows narrowing an included field's
