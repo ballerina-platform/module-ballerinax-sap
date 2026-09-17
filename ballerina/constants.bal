@@ -18,6 +18,8 @@ const string SAP_CSRF_HEADER = "X-CSRF-TOKEN";
 
 const string ACCEPT_HEADER = "Accept";
 
+const string AUTHORIZATION_HEADER = "Authorization";
+
 const string SAP_CSRF_TOKEN_FETCH = "fetch";
 
 const string SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE = "Required";
