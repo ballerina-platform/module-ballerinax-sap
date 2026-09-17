@@ -103,18 +103,18 @@ public client isolated class Client {
         return;
     }
 
-    # Returns the current (cached, or freshly obtained) SAML Bearer `Authorization` header, or an
-    # empty map if this client isn't using `SamlBearerAuthConfig` (Basic Auth and other
+    # Returns the current (cached, or freshly obtained) SAML Bearer `Authorization` header value, or
+    # `()` if this client isn't using `SamlBearerAuthConfig` (Basic Auth and other
     # `http:ClientAuthConfig` variants are handled by the underlying `http:Client` itself and need
     # no extra header here).
     #
     # + refresh - Force obtaining a fresh token even if one is already cached
-    # + return - A single-entry `Authorization` header map, an empty map, or an `sap:ClientError` if
-    # a fresh token could not be obtained
-    private isolated function getSamlAuthHeader(boolean refresh = false) returns map<string|string[]>|ClientError {
+    # + return - The `Authorization` header value, `()`, or an `sap:ClientError` if a fresh token
+    # could not be obtained
+    private isolated function getSamlAuthHeader(boolean refresh = false) returns string?|ClientError {
         (readonly & SamlBearerAuthConfig)? samlConfig = self.samlAuthConfig;
         if samlConfig is () {
-            return {};
+            return ();
         }
         string? token = ();
         lock {
@@ -130,8 +130,7 @@ public client isolated class Client {
         if token is () {
             return error ClientError("Failed to resolve a SAML Bearer access token");
         }
-        string resolvedToken = token;
-        return {"Authorization": string `Bearer ${resolvedToken}`};
+        return string `Bearer ${token}`;
     }
 
     # The client resource function to send HTTP POST requests to SAP HTTP endpoints.
@@ -168,16 +167,18 @@ public client isolated class Client {
     private isolated function processPost(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         }
@@ -223,16 +224,18 @@ public client isolated class Client {
     private isolated function processPut(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         }
@@ -279,16 +282,18 @@ public client isolated class Client {
     private isolated function processPatch(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         }
@@ -335,16 +340,18 @@ public client isolated class Client {
     private isolated function processDelete(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         }
@@ -376,13 +383,15 @@ public client isolated class Client {
     # + return - The response or an `sap:ClientError` if failed to establish the communication with the upstream server
     remote isolated function head(string path, map<string|string[]>? headers = ()) returns http:Response|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         http:Response|ClientError response = self.httpClient->head(path, headersModified);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             return self.httpClient->head(path, headersModified);
         }
@@ -418,14 +427,16 @@ public client isolated class Client {
     private isolated function processGet(string path, map<string|string[]>? headers, typedesc<TargetType> targetType)
             returns TargetType|error {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|error response = self.httpClient->get(path, headersModified, targetType);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             return self.httpClient->get(path, headersModified, targetType);
         }
@@ -461,14 +472,16 @@ public client isolated class Client {
     private isolated function processOptions(string path, map<string|string[]>? headers, typedesc<TargetType> targetType)
             returns TargetType|ClientError {
         map<string|string[]> headersModified = headers ?: {};
-        foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-            headersModified[k] = v;
+        string? samlAuthHeader = check self.getSamlAuthHeader();
+        if samlAuthHeader is string {
+            headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
         }
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
         TargetType|ClientError response = self.httpClient->options(path, headersModified, targetType);
         if self.isSAMLAuthFailure(response) {
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader(true)).entries() {
-                headersModified[k] = v;
+            string? refreshedSamlAuthHeader = check self.getSamlAuthHeader(true);
+            if refreshedSamlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = refreshedSamlAuthHeader;
             }
             return self.httpClient->options(path, headersModified, targetType);
         }
@@ -482,8 +495,9 @@ public client isolated class Client {
         }
         if csrfToken is () || refreshToken {
             map<string|string[]> headersModified = {};
-            foreach [string, string|string[]] [k, v] in (check self.getSamlAuthHeader()).entries() {
-                headersModified[k] = v;
+            string? samlAuthHeader = check self.getSamlAuthHeader();
+            if samlAuthHeader is string {
+                headersModified[AUTHORIZATION_HEADER] = samlAuthHeader;
             }
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
             http:Response response = check self.httpClient->head("/", headersModified);
