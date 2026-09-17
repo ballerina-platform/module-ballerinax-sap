@@ -29,27 +29,13 @@ public client isolated class Client {
     private final (readonly & http:ClientSecureSocket)? samlTokenSecureSocket;
     private final (readonly & http:ProxyConfig)? samlTokenProxy;
 
-    # Gets invoked to initialize the `client`. During initialization, the configurations provided through the `config`
-    # record is used to determine which type of additional behaviours are added to the endpoint (e.g.
-    # security, circuit breaking). Caching is enabled always.
+    # Gets invoked to initialize the `client`. Caching is enabled always.
     #
-    # If `config.auth` is a `SamlBearerAuthConfig`, an OAuth 2.0 access token is obtained via the SAML
-    # Bearer Assertion Flow and attached as an `Authorization: Bearer` header on every request from
-    # then on (the same way an SAP CSRF token is fetched once and attached to every state-changing
-    # request) - not baked into the underlying `http:Client`'s own auth config. If the server rejects
-    # a request as unauthorized (`401`), a fresh token is obtained and the request retried once,
-    # exactly like the existing CSRF-token-expiry retry.
-    #
-    # `SamlBearerAuthConfig.privateKey` must be a file path (`string`) when used here, not a
-    # pre-decoded `crypto:PrivateKey` - the client needs to retain the key for the lifetime of the
-    # connection to obtain fresh tokens on demand, and a `crypto:PrivateKey` cannot be safely cloned
-    # for storage (its native key material isn't part of its Ballerina-visible shape, so cloning it
-    # silently drops it). Pass the key file path instead; it is decoded fresh each time a token is
-    # obtained.
-    #
-    # The token exchange call to `SamlBearerAuthConfig.tokenUrl` reuses this client's own
-    # `secureSocket` and `proxy` settings, so a custom/private CA trust or a required corporate
-    # proxy applies to it the same way it applies to every other request this client makes.
+    # If `config.auth` is a `SamlBearerAuthConfig`, a SAML Bearer access token is attached as an
+    # `Authorization` header on every request (like the CSRF token), refreshed and retried once on
+    # a `401`. `privateKey` must be a file path (`string`), not a pre-decoded `crypto:PrivateKey` -
+    # the latter can't be safely retained across requests. The token exchange reuses this client's
+    # own `secureSocket`/`proxy`.
     #
     # + url - URL of the target service
     # + config - The configurations to be used when initializing the `client`
