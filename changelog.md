@@ -7,12 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 17/09/2026
+
+### Added
+
+- [Add OAuth 2.0 SAML Bearer Assertion Flow support](https://github.com/ballerina-platform/module-ballerinax-sap/pull/35)
+
+## [1.3.1] - 26/03/2026
+
+### Changed
+
+- Update the package overview and keywords
+
+### Fixed
+
+- Fix the distribution version in `Ballerina.toml`
+
+## [1.3.0] - 09/02/2026
+
 ### Added
 
 - Depends on 2201.13.0 distribution
-- Add OAuth 2.0 SAML Bearer Assertion Flow support (`SamlBearerAuthConfig`) as an alternative to Basic Auth
 
 ### Fixed
+
 - [Fix Wrong HTTP method on retry for CSRF token failure](https://github.com/ballerina-platform/ballerina-library/issues/8640)
 - [Fix CSRF token refresh fails for request with databinding](https://github.com/ballerina-platform/ballerina-library/issues/8641)
 
