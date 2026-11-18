@@ -135,7 +135,7 @@ public client isolated class Client {
     private isolated function applySamlAuthHeader(map<string|string[]> headers, boolean refresh = false) returns ClientError? {
         string? samlAuthHeader = check self.getSamlAuthHeader(refresh);
         if samlAuthHeader is string {
-            headers[AUTHORIZATION_HEADER] = samlAuthHeader;
+            setHeader(headers, AUTHORIZATION_HEADER, samlAuthHeader);
         }
     }
 
@@ -177,7 +177,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        headersModified[SAP_CSRF_HEADER] = csrfToken;
+        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
         TargetType|ClientError response = self.httpClient->post(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
@@ -185,7 +185,7 @@ public client isolated class Client {
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
             return self.httpClient->post(path, body, headersModified, mediaType, targetType);
         }
         return response;
@@ -229,7 +229,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        headersModified[SAP_CSRF_HEADER] = csrfToken;
+        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
         TargetType|ClientError response = self.httpClient->put(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
@@ -237,7 +237,7 @@ public client isolated class Client {
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
             return self.httpClient->put(path, body, headersModified, mediaType, targetType);
         }
         return response;
@@ -282,7 +282,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        headersModified[SAP_CSRF_HEADER] = csrfToken;
+        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
         TargetType|ClientError response = self.httpClient->patch(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
@@ -290,7 +290,7 @@ public client isolated class Client {
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
             return self.httpClient->patch(path, body, headersModified, mediaType, targetType);
         }
         return response;
@@ -335,7 +335,7 @@ public client isolated class Client {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        headersModified[SAP_CSRF_HEADER] = csrfToken;
+        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
         TargetType|ClientError response = self.httpClient->delete(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
@@ -343,7 +343,7 @@ public client isolated class Client {
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            headersModified[SAP_CSRF_HEADER] = csrfToken;
+            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
             return self.httpClient->delete(path, body, headersModified, mediaType, targetType);
         }
         return response;
@@ -560,6 +560,22 @@ isolated function prepareHeaders(map<string|string[]>? headers) returns map<stri
     return headersModified;
 }
 
+# Sets a header, replacing any entry for the same header in another letter case (for example a caller's
+# `x-csrf-token` or `authorization`), so that the request never carries two values for it.
+#
+# + headers - The headers to update in place
+# + name - The header name
+# + value - The header value
+isolated function setHeader(map<string|string[]> headers, string name, string value) {
+    string lowerCaseName = name.toLowerAscii();
+    foreach string key in headers.keys() {
+        if key != name && key.toLowerAscii() == lowerCaseName {
+            _ = headers.remove(key);
+        }
+    }
+    headers[name] = value;
+}
+
 # Checks whether a header is present, comparing header names case-insensitively as HTTP does.
 #
 # + headers - The headers to check
@@ -630,21 +646,45 @@ isolated function csrfSessionKey(map<string|string[]> requestHeaders) returns st
     return string:'join("|", ...parts);
 }
 
-# Reads a stream body into memory. A request may be sent a second time, after its CSRF token or SAML Bearer token is
-# refreshed, and a stream can be read only once, so it would otherwise be resent empty. Other bodies are returned as
-# they are.
+# Makes a request body safe to send twice. A request may be sent a second time, after its CSRF token or SAML Bearer
+# token is refreshed, and a stream can be read only once, so it would otherwise be resent empty. A stream body, and a
+# stream set as the payload of an `http:Request`, is read into memory. Other bodies can already be resent and are
+# returned as they are.
 #
 # + message - The request body
-# + return - The request body, with a stream read into a byte array, or an `sap:ClientError` if the stream fails
+# + return - The request body, or an `sap:ClientError` if the stream fails
 isolated function bufferStreamBody(http:RequestMessage message) returns http:RequestMessage|ClientError {
-    if message !is stream<byte[], io:Error?> {
+    if message is http:Request {
+        string contentType = message.getContentType();
+        if contentType.toLowerAscii().startsWith("multipart/") {
+            // Body parts are encoded again on every attempt.
+            return message;
+        }
+        // Only a payload set with `setByteStream` is returned as a stream; for any other payload this is an error
+        // and the request can be resent as it is.
+        stream<byte[], io:Error?>|http:ClientError payloadStream = message.getByteStream();
+        if payloadStream is stream<byte[], io:Error?> {
+            byte[] payload = check readStream(payloadStream);
+            message.setBinaryPayload(payload, contentType == "" ? () : contentType);
+        }
         return message;
     }
+    if message is stream<byte[], io:Error?> {
+        return readStream(message);
+    }
+    return message;
+}
+
+# Reads a byte stream to its end.
+#
+# + byteStream - The stream to read
+# + return - The bytes of the stream, or an `sap:ClientError` if the stream fails
+isolated function readStream(stream<byte[], io:Error?> byteStream) returns byte[]|ClientError {
     byte[] body = [];
-    record {|byte[] value;|}|io:Error? chunk = message.next();
+    record {|byte[] value;|}|io:Error? chunk = byteStream.next();
     while chunk is record {|byte[] value;|} {
         body.push(...chunk.value);
-        chunk = message.next();
+        chunk = byteStream.next();
     }
     if chunk is io:Error {
         return error ClientError("Failed to read the request body stream", chunk);

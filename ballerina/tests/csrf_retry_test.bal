@@ -14,8 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/file;
 import ballerina/http;
 import ballerina/io;
+import ballerina/mime;
 import ballerina/test;
 
 // Paths that have already been rejected once. The fake service answers the first POST to each path with
@@ -59,9 +61,20 @@ service /csrf on new http:Listener(9405) {
             rejectedPaths[key] = true;
         }
         http:Response response = new;
+        string[]|http:HeaderNotFoundError tokens = req.getHeaders("X-CSRF-Token");
+        if tokens is string[] && tokens.length() > 1 {
+            response.statusCode = http:STATUS_BAD_REQUEST;
+            response.setTextPayload("more than one X-CSRF-Token header");
+            return response;
+        }
         if firstAttempt || headerOf(req, "X-CSRF-Token") != string `token-${sapClient}` {
             response.statusCode = http:STATUS_FORBIDDEN;
             response.setHeader("X-Csrf-Token", "Required");
+            return response;
+        }
+        if req.getContentType().startsWith("multipart/") {
+            mime:Entity[] parts = check req.getBodyParts();
+            response.setTextPayload(string `parts:${parts.length()}`);
             return response;
         }
         byte[] body = check req.getBinaryPayload();
@@ -118,4 +131,76 @@ function testStreamBodyIsResentOnRetry() returns error? {
     stream<byte[], io:Error?> body = chunks.toStream();
     string received = check csrfClient->post("/stream", body);
     test:assertEquals(received, "5", "The retried request did not carry the stream body");
+}
+
+@test:Config {}
+function testFileStreamBodyIsResentOnRetry() returns error? {
+    string path = check file:createTemp();
+    check io:fileWriteString(path, "hello from a file");
+    stream<io:Block, io:Error?> body = check io:fileReadBlocksAsStream(path, 4);
+    string received = check csrfClient->post("/filestream", body);
+    test:assertEquals(received, "17", "The retried request did not carry the file stream body");
+    check file:remove(path);
+}
+
+class FailingStream {
+    private int calls = 0;
+
+    public isolated function next() returns record {|byte[] value;|}|io:Error? {
+        self.calls += 1;
+        if self.calls == 1 {
+            return {value: [1, 2, 3]};
+        }
+        return error io:GenericError("the body source failed");
+    }
+}
+
+@test:Config {}
+function testFailingStreamBodyReturnsAnError() {
+    stream<byte[], io:Error?> body = new (new FailingStream());
+    string|ClientError received = csrfClient->post("/failingstream", body);
+    test:assertTrue(received is ClientError, "A failing body stream must fail the call instead of sending a partial body");
+}
+
+@test:Config {}
+function testCallerCsrfHeaderInAnotherCaseIsReplaced() returns error? {
+    // The client's own token must be the only X-CSRF-Token value, whatever casing the caller used.
+    string received = check csrfClient->post("/callertoken", "x", {"x-csrf-token": "from-the-caller"});
+    test:assertEquals(received, "1");
+}
+
+@test:Config {}
+function testRequestWithStreamPayloadOnRetry() returns error? {
+    http:Request request = new;
+    byte[][] chunks = [[104, 101], [108, 108, 111]];
+    request.setByteStream(chunks.toStream());
+    string received = check csrfClient->post("/requeststream", request);
+    test:assertEquals(received, "5", "The retried http:Request did not carry its stream payload");
+}
+
+@test:Config {}
+function testMultipartBodyOnRetry() returns error? {
+    mime:Entity part = new;
+    part.setText("hello");
+    mime:Entity[] parts = [part];
+    string received = check csrfClient->post("/multipart", parts);
+    test:assertEquals(received, "parts:1", "The retried multipart request did not carry its parts");
+}
+
+@test:Config {}
+function testRequestPayloadAndContentTypeAreKeptOnRetry() returns error? {
+    http:Request request = new;
+    request.setJsonPayload({message: "hello"}, "application/json; charset=utf-8");
+    string received = check csrfClient->post("/requestjson", request);
+    test:assertEquals(received, "19");
+    test:assertTrue(request.getContentType().startsWith("application/json"));
+
+    http:Request text = new;
+    text.setTextPayload("hello");
+    received = check csrfClient->post("/requesttext", text);
+    test:assertEquals(received, "5");
+
+    http:Request empty = new;
+    received = check csrfClient->post("/requestempty", empty);
+    test:assertEquals(received, "0");
 }
