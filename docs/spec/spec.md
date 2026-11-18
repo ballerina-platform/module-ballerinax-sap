@@ -84,7 +84,9 @@ This client is equipped with built-in CSRF token authentication, ensuring compli
 
 #### 2.1.2 Cookie
 
-As per SAP's CSRF token authentication requirements, cookie functionality is always enabled.
+As per SAP's CSRF token authentication requirements, cookie functionality is always enabled. The other settings of
+`cookieConfig`, such as a `persistentCookieHandler`, `maxCookiesPerDomain`, `maxTotalCookieCount` or
+`blockThirdPartyCookies`, are applied as configured.
 
 ### 2.2. Client action
 

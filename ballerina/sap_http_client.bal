@@ -81,7 +81,12 @@ public client isolated class Client {
                 validation: config.validation,
                 laxDataBinding: config.laxDataBinding
             };
-            httpConfig.cookieConfig = {enabled: true};
+            // Cookies carry the SAP session that the CSRF token belongs to, so they are always enabled. The rest of
+            // the caller's cookie settings (for example a persistent cookie handler or cookie limits) are kept.
+            http:CookieConfig callerCookieConfig = config.cookieConfig ?: {};
+            http:CookieConfig cookieConfig = {...callerCookieConfig};
+            cookieConfig.enabled = true;
+            httpConfig.cookieConfig = cookieConfig;
             self.httpClient = check new (url, httpConfig);
         } on fail error e {
             return error ClientError("Failed to initialize the SAP client", e);
