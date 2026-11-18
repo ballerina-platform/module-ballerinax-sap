@@ -402,10 +402,15 @@ public client isolated class Client {
             returns TargetType|ClientError {
         // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
         http:RequestMessage body = check bufferStreamBody(message);
-        map<string|string[]> headersModified = prepareHeaders(headers);
+        // An `Accept` header set on an `http:Request` message counts as the caller's choice too.
+        boolean acceptOnRequest = message is http:Request && hasHeaderValue(message, ACCEPT_HEADER);
+        map<string|string[]> headersModified = prepareHeaders(headers, !acceptOnRequest);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, headersModified);
         setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
+        // `http:Client` writes the headers onto an `http:Request` message. Remember the caller's own values, so
+        // that the CSRF token and the SAML `Authorization` header do not stay on the caller's request.
+        map<string[]?> callerValues = message is http:Request ? requestHeaderValues(message, headersModified) : {};
         TargetType|ClientError response = self.invoke(method, path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
@@ -414,7 +419,10 @@ public client isolated class Client {
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, headersModified, true);
             setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            return self.invoke(method, path, body, headersModified, mediaType, targetType);
+            response = self.invoke(method, path, body, headersModified, mediaType, targetType);
+        }
+        if message is http:Request {
+            restoreRequestHeaders(message, callerValues);
         }
         return response;
     }
@@ -544,12 +552,62 @@ isolated function copyHeaders(map<string|string[]>? headers) returns map<string|
 #
 # + headers - The headers passed by the caller
 # + return - A new map holding the caller's headers and an `Accept` header
-isolated function prepareHeaders(map<string|string[]>? headers) returns map<string|string[]> {
+isolated function prepareHeaders(map<string|string[]>? headers, boolean defaultAccept = true)
+        returns map<string|string[]> {
     map<string|string[]> headersModified = copyHeaders(headers);
-    if !hasHeader(headersModified, ACCEPT_HEADER) {
+    string? accept = headerValue(headersModified, ACCEPT_HEADER);
+    if accept is string && accept.trim() == "" {
+        // An `Accept` header without a value (an empty string or an empty array) is not a choice.
+        foreach string key in headersModified.keys() {
+            if key.equalsIgnoreCaseAscii(ACCEPT_HEADER) {
+                _ = headersModified.remove(key);
+            }
+        }
+        accept = ();
+    }
+    if accept is () && defaultAccept {
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
     }
     return headersModified;
+}
+
+# Checks whether an `http:Request` has a header with a value.
+#
+# + request - The request
+# + name - The header name
+# + return - `true` if the request has a non-empty value for the header
+isolated function hasHeaderValue(http:Request request, string name) returns boolean {
+    string|http:HeaderNotFoundError value = request.getHeader(name);
+    return value is string && value.trim() != "";
+}
+
+# Returns the values an `http:Request` has for the given headers, before the client sends it.
+#
+# + request - The caller's request
+# + headers - The headers the client is about to send with it
+# + return - The request's own values by header name, `()` for a header it does not have
+isolated function requestHeaderValues(http:Request request, map<string|string[]> headers) returns map<string[]?> {
+    map<string[]?> values = {};
+    foreach string name in headers.keys() {
+        string[]|http:HeaderNotFoundError current = request.getHeaders(name);
+        values[name] = current is string[] ? current : ();
+    }
+    return values;
+}
+
+# Puts the caller's own header values back on an `http:Request` after it was sent.
+#
+# + request - The caller's request
+# + callerValues - The values returned by `requestHeaderValues`
+isolated function restoreRequestHeaders(http:Request request, map<string[]?> callerValues) {
+    foreach [string, string[]?] [name, values] in callerValues.entries() {
+        request.removeHeader(name);
+        if values is string[] {
+            foreach string value in values {
+                request.addHeader(name, value);
+            }
+        }
+    }
 }
 
 # Sets a header, replacing any entry for the same header in another letter case (for example a caller's

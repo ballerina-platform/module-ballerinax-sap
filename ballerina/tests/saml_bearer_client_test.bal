@@ -170,3 +170,19 @@ function testPredecodedPrivateKeyRejectedWithClearError() returns error? {
                 "error message should explain the file-path requirement");
     }
 }
+
+@test:Config {}
+function testSamlTokenIsNotLeftWithTheCaller() returns error? {
+    Client samlClient = check new ("http://localhost:9098/api", {auth: newSamlTestConfig()});
+    map<string> headers = {"X-Request-Id": "42"};
+    http:Response _ = check samlClient->get("/resource", headers);
+    http:Response _ = check samlClient->head("/", headers);
+    http:Response _ = check samlClient->post("/resource", "payload", headers);
+    test:assertEquals(headers, {"X-Request-Id": "42"}, "The SAML token was written to the caller's header map");
+
+    http:Request request = new;
+    request.setTextPayload("payload");
+    http:Response _ = check samlClient->post("/resource", request);
+    test:assertFalse(request.hasHeader("Authorization"), "The SAML token was left on the caller's request");
+    test:assertFalse(request.hasHeader(SAP_CSRF_HEADER), "The CSRF token was left on the caller's request");
+}

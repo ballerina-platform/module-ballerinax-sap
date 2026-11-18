@@ -104,3 +104,65 @@ function testReadOnlyHeaderMapIsAccepted() returns error? {
     received = check echoClient->get("/accept", noAccept);
     test:assertEquals(received, "application/json");
 }
+
+@test:Config {}
+function testDefaultAcceptForEveryMethod() returns error? {
+    string received = check echoClient->put("/accept", "payload");
+    test:assertEquals(received, "application/json");
+    received = check echoClient->patch("/accept", "payload");
+    test:assertEquals(received, "application/json");
+    received = check echoClient->delete("/accept", "payload");
+    test:assertEquals(received, "application/json");
+    received = check echoClient->options("/accept");
+    test:assertEquals(received, "application/json");
+    // The resource-function forms share the same behaviour.
+    received = check echoClient->/accept;
+    test:assertEquals(received, "application/json");
+    received = check echoClient->/accept.post("payload");
+    test:assertEquals(received, "application/json");
+    received = check echoClient->/accept(headers = {"Accept": "application/xml"});
+    test:assertEquals(received, "application/xml");
+}
+
+@test:Config {}
+function testEmptyAcceptFallsBackToJson() returns error? {
+    string received = check echoClient->get("/accept", {"Accept": []});
+    test:assertEquals(received, "application/json");
+    received = check echoClient->get("/accept", {"accept": ""});
+    test:assertEquals(received, "application/json");
+    received = check echoClient->post("/accept", "payload", {"Accept": []});
+    test:assertEquals(received, "application/json");
+}
+
+@test:Config {}
+function testAcceptOnRequestMessageIsKept() returns error? {
+    http:Request request = new;
+    request.setTextPayload("payload");
+    request.setHeader("Accept", "application/atom+xml");
+    string received = check echoClient->post("/accept", request);
+    test:assertEquals(received, "application/atom+xml");
+    received = check echoClient->put("/accept", request);
+    test:assertEquals(received, "application/atom+xml");
+
+    // A header map still wins over the request, as it does for `http:Client`.
+    received = check echoClient->post("/accept", request, {"Accept": "application/xml"});
+    test:assertEquals(received, "application/xml");
+}
+
+@test:Config {}
+function testRequestMessageIsLeftAsTheCallerSetIt() returns error? {
+    http:Request request = new;
+    request.setTextPayload("payload");
+    request.setHeader("Accept", "application/atom+xml");
+    request.setHeader("X-Request-Id", "42");
+    string _ = check echoClient->post("/accept", request, {"Accept": "application/xml"});
+    test:assertEquals(check request.getHeader("Accept"), "application/atom+xml", "The caller's Accept was replaced on the request");
+    test:assertEquals(check request.getHeader("X-Request-Id"), "42");
+    test:assertFalse(request.hasHeader(SAP_CSRF_HEADER), "The CSRF token was left on the caller's request");
+
+    http:Request plain = new;
+    plain.setTextPayload("payload");
+    string _ = check echoClient->post("/accept", plain);
+    test:assertFalse(plain.hasHeader(SAP_CSRF_HEADER), "The CSRF token was left on the caller's request");
+    test:assertFalse(plain.hasHeader("Accept"), "The default Accept was left on the caller's request");
+}

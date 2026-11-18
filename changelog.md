@@ -10,10 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - [Default the client to HTTP/1.1](https://github.com/ballerina-platform/ballerina-library/issues/9768)
+- [A caller's `Accept` header now takes precedence over the `application/json` default](https://github.com/ballerina-platform/ballerina-library/issues/9763). A request that passes an `Accept` header, for example one forwarded from an inbound request, gets the format it asks for instead of JSON
 
 ### Fixed
 
-- [Keep the caller's `Accept` header and stop modifying the caller's header map](https://github.com/ballerina-platform/ballerina-library/issues/9763)
+- [Stop modifying the caller's header map and `http:Request`](https://github.com/ballerina-platform/ballerina-library/issues/9763)
 - [Resend stream bodies in full when a request is retried after a token refresh](https://github.com/ballerina-platform/ballerina-library/issues/9765)
 - [Send the request's routing and session headers on the CSRF token fetch](https://github.com/ballerina-platform/ballerina-library/issues/9766)
 - [Match the CSRF failure header case-insensitively for data-bound targets](https://github.com/ballerina-platform/ballerina-library/issues/9767)
