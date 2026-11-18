@@ -85,3 +85,27 @@ function testCsrfRetryForResponseTarget() returns error? {
     http:Response response = check csrfClient->post("/response", "x");
     test:assertEquals(response.statusCode, http:STATUS_OK);
 }
+
+@test:Config {}
+function testTokenFetchCarriesRoutingHeaders() returns error? {
+    map<string> headers = {"sap-client": "100", "SAP-Connectivity-SCC-Location_ID": "loc1"};
+    string received = check csrfClient->post("/routed", "x", headers);
+    test:assertEquals(received, "1");
+    test:assertTrue(recordedTokenFetches().indexOf("100|loc1") !is (),
+            string `The token fetch did not carry the routing headers: ${recordedTokenFetches().toString()}`);
+}
+
+@test:Config {
+    dependsOn: [testTokenFetchCarriesRoutingHeaders]
+}
+function testTokensAreCachedPerSapClient() returns error? {
+    map<string> client100 = {"sap-client": "100", "SAP-Connectivity-SCC-Location_ID": "loc1"};
+    map<string> client200 = {"sap-client": "200", "SAP-Connectivity-SCC-Location_ID": "loc1"};
+    string received = check csrfClient->post("/routed", "x", client200);
+    test:assertEquals(received, "1");
+    // The token of sap-client 100 is still cached, so this request needs no new token fetch.
+    int fetches = recordedTokenFetches().length();
+    received = check csrfClient->post("/routed", "x", client100);
+    test:assertEquals(received, "1");
+    test:assertEquals(recordedTokenFetches().length(), fetches, "The token of sap-client 100 was fetched again");
+}

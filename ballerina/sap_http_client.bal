@@ -23,7 +23,8 @@ import ballerina/mime;
 public client isolated class Client {
 
     final http:Client httpClient;
-    private string? csrfToken = ();
+    // CSRF tokens by SAP session: the `sap-client` and Cloud Connector location the request is routed to.
+    private map<string> csrfTokens = {};
     private final (readonly & SamlBearerAuthConfig)? samlAuthConfig;
     private string? samlAccessToken = ();
     private final (readonly & http:ClientSecureSocket)? samlTokenSecureSocket;
@@ -172,7 +173,7 @@ public client isolated class Client {
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         TargetType|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
@@ -180,7 +181,7 @@ public client isolated class Client {
             response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->post(path, message, headersModified, mediaType, targetType);
         }
@@ -222,7 +223,7 @@ public client isolated class Client {
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         TargetType|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
@@ -230,7 +231,7 @@ public client isolated class Client {
             response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->put(path, message, headersModified, mediaType, targetType);
         }
@@ -273,7 +274,7 @@ public client isolated class Client {
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         TargetType|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
@@ -281,7 +282,7 @@ public client isolated class Client {
             response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->patch(path, message, headersModified, mediaType, targetType);
         }
@@ -324,7 +325,7 @@ public client isolated class Client {
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest();
+        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
         TargetType|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
@@ -332,7 +333,7 @@ public client isolated class Client {
             response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(true);
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
             return self.httpClient->delete(path, message, headersModified, mediaType, targetType);
         }
@@ -444,20 +445,32 @@ public client isolated class Client {
         return response;
     }
 
-    isolated function fetchCSRFTokenForModifyingRequest(boolean refreshToken = false) returns string|CSRFTokenFetchFailure {
+    # Returns the CSRF token for the SAP session a modifying request belongs to, fetching it with
+    # `HEAD <service URL>/` and `X-CSRF-TOKEN: fetch` when none is cached or `refreshToken` is set.
+    #
+    # The fetch carries the request's own headers (except the body, conditional and method-override headers), so
+    # that headers deciding which system or session the token belongs to, such as `sap-client`,
+    # `SAP-Connectivity-SCC-Location_ID` or `Proxy-Authorization`, reach the same backend as the request.
+    #
+    # + requestHeaders - The headers of the request the token is for
+    # + refreshToken - Fetch a new token even if one is cached
+    # + return - The CSRF token, or an `sap:CSRFTokenFetchFailure` if the server did not return one
+    isolated function fetchCSRFTokenForModifyingRequest(map<string|string[]> requestHeaders, boolean refreshToken = false)
+            returns string|CSRFTokenFetchFailure {
+        string cacheKey = csrfSessionKey(requestHeaders);
         string? csrfToken = ();
         lock {
-            csrfToken = self.csrfToken;
+            csrfToken = self.csrfTokens[cacheKey];
         }
         if csrfToken is () || refreshToken {
-            map<string|string[]> headersModified = {};
+            map<string|string[]> headersModified = tokenFetchHeaders(requestHeaders);
             check self.applySamlAuthHeader(headersModified);
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
             http:Response response = check self.httpClient->head("/", headersModified);
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
             if header is string {
                 lock {
-                    self.csrfToken = header;
+                    self.csrfTokens[cacheKey] = header;
                 }
                 return header;
             } else {
@@ -551,4 +564,59 @@ isolated function hasHeader(map<string|string[]> headers, string name) returns b
         }
     }
     return false;
+}
+
+// Request headers that are not sent on the CSRF token fetch: they describe the request body, make the request
+// conditional or change its method, none of which applies to the `HEAD` request that fetches the token.
+final readonly & string[] TOKEN_FETCH_EXCLUDED_HEADERS = [
+    "accept",
+    "content-encoding",
+    "content-length",
+    "content-type",
+    "expect",
+    "if-match",
+    "if-modified-since",
+    "if-none-match",
+    "if-range",
+    "if-unmodified-since",
+    "transfer-encoding",
+    "x-csrf-token",
+    "x-http-method",
+    "x-http-method-override"
+];
+
+// Request headers that select the SAP session a CSRF token belongs to: the SAP client and the Cloud Connector
+// location the SAP BTP Connectivity proxy routes the request to.
+final readonly & string[] CSRF_SESSION_HEADERS = ["sap-client", "sap-connectivity-scc-location_id"];
+
+# Returns the request headers to send on the CSRF token fetch.
+#
+# + requestHeaders - The headers of the request the token is for
+# + return - A new map holding the headers to send on the token fetch
+isolated function tokenFetchHeaders(map<string|string[]> requestHeaders) returns map<string|string[]> {
+    map<string|string[]> fetchHeaders = {};
+    foreach [string, string|string[]] [name, value] in requestHeaders.entries() {
+        if TOKEN_FETCH_EXCLUDED_HEADERS.indexOf(name.toLowerAscii()) is () {
+            fetchHeaders[name] = value;
+        }
+    }
+    return fetchHeaders;
+}
+
+# Returns the key a CSRF token is cached under: the values of the headers that select the SAP session.
+#
+# + requestHeaders - The headers of the request the token is for
+# + return - The cache key
+isolated function csrfSessionKey(map<string|string[]> requestHeaders) returns string {
+    string[] parts = [];
+    foreach string sessionHeader in CSRF_SESSION_HEADERS {
+        string value = "";
+        foreach [string, string|string[]] [name, headerValue] in requestHeaders.entries() {
+            if name.toLowerAscii() == sessionHeader {
+                value = headerValue is string ? headerValue : string:'join(",", ...headerValue);
+            }
+        }
+        parts.push(value);
+    }
+    return string:'join("|", ...parts);
 }
