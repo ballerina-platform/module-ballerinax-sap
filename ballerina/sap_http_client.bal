@@ -15,6 +15,7 @@
 // under the License.
 import ballerina/crypto;
 import ballerina/http;
+import ballerina/io;
 import ballerina/jballerina.java;
 import ballerina/mime;
 
@@ -171,19 +172,21 @@ public client isolated class Client {
 
     private isolated function processPost(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
+        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
+        http:RequestMessage body = check bufferStreamBody(message);
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        TargetType|ClientError response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->post(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->post(path, message, headersModified, mediaType, targetType);
+            response = self.httpClient->post(path, body, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->post(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->post(path, body, headersModified, mediaType, targetType);
         }
         return response;
     }
@@ -221,19 +224,21 @@ public client isolated class Client {
 
     private isolated function processPut(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
+        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
+        http:RequestMessage body = check bufferStreamBody(message);
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        TargetType|ClientError response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->put(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->put(path, message, headersModified, mediaType, targetType);
+            response = self.httpClient->put(path, body, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->put(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->put(path, body, headersModified, mediaType, targetType);
         }
         return response;
 
@@ -272,19 +277,21 @@ public client isolated class Client {
 
     private isolated function processPatch(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
+        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
+        http:RequestMessage body = check bufferStreamBody(message);
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        TargetType|ClientError response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->patch(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->patch(path, message, headersModified, mediaType, targetType);
+            response = self.httpClient->patch(path, body, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->patch(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->patch(path, body, headersModified, mediaType, targetType);
         }
         return response;
 
@@ -323,19 +330,21 @@ public client isolated class Client {
 
     private isolated function processDelete(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
+        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
+        http:RequestMessage body = check bufferStreamBody(message);
         map<string|string[]> headersModified = prepareHeaders(headers);
         check self.applySamlAuthHeader(headersModified);
         string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
         headersModified[SAP_CSRF_HEADER] = csrfToken;
-        TargetType|ClientError response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.httpClient->delete(path, body, headersModified, mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->delete(path, message, headersModified, mediaType, targetType);
+            response = self.httpClient->delete(path, body, headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
             headersModified[SAP_CSRF_HEADER] = csrfToken;
-            return self.httpClient->delete(path, message, headersModified, mediaType, targetType);
+            return self.httpClient->delete(path, body, headersModified, mediaType, targetType);
         }
         return response;
 
@@ -619,4 +628,26 @@ isolated function csrfSessionKey(map<string|string[]> requestHeaders) returns st
         parts.push(value);
     }
     return string:'join("|", ...parts);
+}
+
+# Reads a stream body into memory. A request may be sent a second time, after its CSRF token or SAML Bearer token is
+# refreshed, and a stream can be read only once, so it would otherwise be resent empty. Other bodies are returned as
+# they are.
+#
+# + message - The request body
+# + return - The request body, with a stream read into a byte array, or an `sap:ClientError` if the stream fails
+isolated function bufferStreamBody(http:RequestMessage message) returns http:RequestMessage|ClientError {
+    if message !is stream<byte[], io:Error?> {
+        return message;
+    }
+    byte[] body = [];
+    record {|byte[] value;|}|io:Error? chunk = message.next();
+    while chunk is record {|byte[] value;|} {
+        body.push(...chunk.value);
+        chunk = message.next();
+    }
+    if chunk is io:Error {
+        return error ClientError("Failed to read the request body stream", chunk);
+    }
+    return body;
 }

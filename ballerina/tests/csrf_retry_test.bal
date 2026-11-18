@@ -15,6 +15,7 @@
 // under the License.
 
 import ballerina/http;
+import ballerina/io;
 import ballerina/test;
 
 // Paths that have already been rejected once. The fake service answers the first POST to each path with
@@ -108,4 +109,13 @@ function testTokensAreCachedPerSapClient() returns error? {
     received = check csrfClient->post("/routed", "x", client100);
     test:assertEquals(received, "1");
     test:assertEquals(recordedTokenFetches().length(), fetches, "The token of sap-client 100 was fetched again");
+}
+
+@test:Config {}
+function testStreamBodyIsResentOnRetry() returns error? {
+    // The first attempt is rejected for a fresh CSRF token; the retry must carry the whole body again.
+    byte[][] chunks = [[104, 101], [108, 108, 111]];
+    stream<byte[], io:Error?> body = chunks.toStream();
+    string received = check csrfClient->post("/stream", body);
+    test:assertEquals(received, "5", "The retried request did not carry the stream body");
 }
