@@ -61,6 +61,9 @@ sap:Client sapClient = check new (string `https://${hostname}/sap/opu/odata/sap/
 });
 ```
 
+The client uses HTTP/1.1 by default (`httpVersion`), as SAP Gateway, the SAP Cloud Connector and the SAP BTP
+Connectivity proxy do. Set `httpVersion: http:HTTP_2_0` to use HTTP/2.
+
 #### 2.1.1 Security
 
 The `sap:Client` provides secure HTTP methods for interacting with SAP's HTTP endpoints.
@@ -82,9 +85,19 @@ sap:Client sapClient = check new (string `https://${hostname}/sap/opu/odata/sap/
 
 This client is equipped with built-in CSRF token authentication, ensuring compliance with SAP system security standards.
 
+Before the first modifying request (`post`, `put`, `patch` or `delete`), the client fetches a CSRF token with
+`HEAD <service URL>/` and `X-CSRF-TOKEN: fetch`, and fetches a new one when a request is rejected with
+`403 X-CSRF-Token: Required`. The fetch carries the request's own headers, except the body, conditional and
+method-override headers, so that headers such as `sap-client`, `SAP-Connectivity-SCC-Location_ID` and
+`Proxy-Authorization` route it to the same system and session as the request. A `sap-client` given as a query
+parameter of the request is sent on the fetch as well. Tokens are kept per `sap-client`, Cloud Connector location and
+user (the request's `Authorization` and `Proxy-Authorization` headers).
+
 #### 2.1.2 Cookie
 
-As per SAP's CSRF token authentication requirements, cookie functionality is always enabled.
+As per SAP's CSRF token authentication requirements, cookie functionality is always enabled. The other settings of
+`cookieConfig`, such as a `persistentCookieHandler`, `maxCookiesPerDomain`, `maxTotalCookieCount` or
+`blockThirdPartyCookies`, are applied as configured.
 
 ### 2.2. Client action
 

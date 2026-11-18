@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- [Default the client to HTTP/1.1](https://github.com/ballerina-platform/ballerina-library/issues/9768)
+
 ### Fixed
 
 - [Keep the caller's `Accept` header and stop modifying the caller's header map](https://github.com/ballerina-platform/ballerina-library/issues/9763)
+- [Resend stream bodies in full when a request is retried after a token refresh](https://github.com/ballerina-platform/ballerina-library/issues/9765)
+- [Send the request's routing and session headers on the CSRF token fetch](https://github.com/ballerina-platform/ballerina-library/issues/9766)
+- [Match the CSRF failure header case-insensitively for data-bound targets](https://github.com/ballerina-platform/ballerina-library/issues/9767)
+- [Keep the caller's cookie settings](https://github.com/ballerina-platform/ballerina-library/issues/9769)
+- Report the HTTP status when the CSRF token fetch or the SAML Bearer token exchange is rejected
+- Escape the API key and user name in the SAML assertion
 
 ## [1.4.0] - 17/09/2026
 

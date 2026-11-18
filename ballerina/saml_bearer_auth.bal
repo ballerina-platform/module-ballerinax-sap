@@ -48,9 +48,9 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
             issueInstant = issueInstant,
             notBefore = notBefore,
             notOnOrAfter = notOnOrAfter,
-            issuer = config.apiKey,
-            subjectNameId = config.username,
-            recipient = recipient
+            issuer = escapeXml(config.apiKey),
+            subjectNameId = escapeXml(config.username),
+            recipient = escapeXml(recipient)
         );
 
         string signedAssertion = check signAssertion(assertionXml, assertionId, certificateBase64, privateKey);
@@ -63,10 +63,13 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
             string `&assertion=${check url:encode(assertionBase64, "UTF-8")}`;
         http:Response response = check tokenClient->post("", requestBody,
                 {"Content-Type": "application/x-www-form-urlencoded"});
-        json payload = check response.getJsonPayload();
         if response.statusCode < 200 || response.statusCode >= 300 {
-            return error ClientError("SAML Bearer token exchange failed", statusCode = response.statusCode, body = payload);
+            // The error body is not always JSON (for example an HTML error page), so it is read as text.
+            string|error body = response.getTextPayload();
+            return error ClientError(string `SAML Bearer token exchange failed with status ${response.statusCode}`,
+                statusCode = response.statusCode, body = body is string ? body : "");
         }
+        json payload = check response.getJsonPayload();
         string accessToken = check payload.access_token.ensureType(string);
         decimal expiresIn = 3600;
         json|error expiresInField = payload.expires_in;
@@ -79,6 +82,19 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
     } on fail error e {
         return error ClientError("Failed to obtain an OAuth2 access token via the SAML Bearer flow", e);
     }
+}
+
+# Escapes the characters that have a meaning in XML, so that a value such as a user name containing `&` or `<`
+# can be placed in the assertion.
+#
+# + value - The text to escape
+# + return - The escaped text
+isolated function escapeXml(string value) returns string {
+    string escaped = re `&`.replaceAll(value, "&amp;");
+    escaped = re `<`.replaceAll(escaped, "&lt;");
+    escaped = re `>`.replaceAll(escaped, "&gt;");
+    escaped = re `"`.replaceAll(escaped, "&quot;");
+    return re `'`.replaceAll(escaped, "&apos;");
 }
 
 isolated function resolveCertificate(string certificate) returns string|error {
