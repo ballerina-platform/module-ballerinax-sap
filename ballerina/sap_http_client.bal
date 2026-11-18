@@ -502,11 +502,13 @@ isolated function isCSRFTokenFailure(TargetType|ClientError response) returns bo
     } else if response is http:ClientRequestError {
         var detail = response.detail();
         if detail.statusCode == http:STATUS_FORBIDDEN {
-            map<string[]> headers = detail.headers;
-            string[]? csrfHeader = headers[SAP_CSRF_HEADER] ?: headers[SAP_CSRF_HEADER.toLowerAscii()];
-            if csrfHeader is string[] && csrfHeader.length() > 0 &&
-                    csrfHeader[0].equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE) {
-                return true;
+            // `detail.headers` keeps the header names as the server sent them (for example `X-CSRF-Token`), so the
+            // name is matched case-insensitively, like `http:Response.getHeader` does.
+            foreach [string, string[]] [name, values] in detail.headers.entries() {
+                if name.equalsIgnoreCaseAscii(SAP_CSRF_HEADER) && values.length() > 0 &&
+                        values[0].equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE) {
+                    return true;
+                }
             }
         }
     }
