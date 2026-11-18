@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- [Keep the caller's `Accept` header and stop modifying the caller's header map](https://github.com/ballerina-platform/ballerina-library/issues/9763)
+
 ## [1.4.0] - 17/09/2026
 
 ### Added
