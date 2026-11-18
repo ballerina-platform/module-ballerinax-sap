@@ -204,3 +204,20 @@ function testRequestPayloadAndContentTypeAreKeptOnRetry() returns error? {
     received = check csrfClient->post("/requestempty", empty);
     test:assertEquals(received, "0");
 }
+
+@test:Config {}
+function testBatchRequestStreamIsResentOnRetry() returns error? {
+    // An OData $batch body: a stream whose content type is multipart/mixed. The fake service answers with the
+    // number of batch parts it could decode, which is none when the body is missing.
+    string batch = "--batch_1\r\nContent-Type: application/http\r\n\r\nGET A_SalesOrder HTTP/1.1\r\n\r\n\r\n--batch_1--\r\n";
+    http:Request request = new;
+    byte[][] chunks = [batch.toBytes()];
+    request.setByteStream(chunks.toStream(), "multipart/mixed; boundary=batch_1");
+    string received = check csrfClient->post("/batchrequest", request);
+    test:assertEquals(received, "parts:1", "The retried $batch request did not carry its body");
+    test:assertTrue(request.getContentType().startsWith("multipart/mixed"), request.getContentType());
+
+    stream<byte[], io:Error?> body = [batch.toBytes()].toStream();
+    received = check csrfClient->post("/batchstream", body, mediaType = "multipart/mixed; boundary=batch_1");
+    test:assertEquals(received, "parts:1", "The retried $batch stream did not carry its body");
+}

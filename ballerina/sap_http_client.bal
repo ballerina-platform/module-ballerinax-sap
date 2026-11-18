@@ -655,15 +655,12 @@ isolated function csrfSessionKey(map<string|string[]> requestHeaders) returns st
 # + return - The request body, or an `sap:ClientError` if the stream fails
 isolated function bufferStreamBody(http:RequestMessage message) returns http:RequestMessage|ClientError {
     if message is http:Request {
-        string contentType = message.getContentType();
-        if contentType.toLowerAscii().startsWith("multipart/") {
-            // Body parts are encoded again on every attempt.
-            return message;
-        }
-        // Only a payload set with `setByteStream` is returned as a stream; for any other payload this is an error
-        // and the request can be resent as it is.
+        // Only a payload set with `setByteStream` is returned as a stream, whatever its content type (an OData
+        // `$batch` body is a stream with a `multipart/mixed` content type). For any other payload, including body
+        // parts, this is an error and the request can be resent as it is.
         stream<byte[], io:Error?>|http:ClientError payloadStream = message.getByteStream();
         if payloadStream is stream<byte[], io:Error?> {
+            string contentType = message.getContentType();
             byte[] payload = check readStream(payloadStream);
             message.setBinaryPayload(payload, contentType == "" ? () : contentType);
         }
