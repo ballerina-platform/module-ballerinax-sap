@@ -49,6 +49,7 @@ function testCallerCookieConfigIsApplied() returns error? {
     http:Response _ = check limitedClient->get("/set");
     string sent = check limitedClient->get("/sent");
     // Cookies stay enabled even though the caller turned them off, and the caller's limit of one cookie applies.
+    test:assertTrue(sent.startsWith("first=") || sent.startsWith("second="), string `Expected a cookie, the client sent: "${sent}"`);
     test:assertEquals(re `;`.split(sent).length(), 1, string `Expected one cookie, the client sent: ${sent}`);
 }
 

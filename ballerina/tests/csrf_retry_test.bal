@@ -32,28 +32,39 @@ isolated function headerOf(http:Request req, string name) returns string {
     return value is string ? value : "";
 }
 
+// The SAP client a request is for: the `sap-client` header, or else the `sap-client` query parameter.
+isolated function sapClientOf(http:Request req) returns string {
+    string fromHeader = headerOf(req, "sap-client");
+    return fromHeader != "" ? fromHeader : req.getQueryParamValue("sap-client") ?: "";
+}
+
+// The token of a request's SAP session: one per SAP client and user.
+isolated function tokenFor(http:Request req) returns string {
+    return string `token-${sapClientOf(req)}-${headerOf(req, "Proxy-Authorization")}`;
+}
+
 isolated function recordedTokenFetches() returns string[] {
     lock {
         return tokenFetches.clone();
     }
 }
 
-// A fake SAP endpoint. A token is issued per `sap-client`, and a request is only accepted with the token of its own
-// `sap-client`. The failure header is sent as `X-Csrf-Token`, in a casing other than the client's `X-CSRF-TOKEN`.
+// A fake SAP endpoint. A token is issued per `sap-client` and user, and a request is only accepted with the token of
+// its own session. The failure header is sent as `X-Csrf-Token`, in a casing other than the client's `X-CSRF-TOKEN`.
 service /csrf on new http:Listener(9405) {
     resource function head .(http:Request req) returns http:Response {
-        string sapClient = headerOf(req, "sap-client");
+        string sapClient = sapClientOf(req);
         string location = headerOf(req, "SAP-Connectivity-SCC-Location_ID");
         lock {
             tokenFetches.push(string `${sapClient}|${location}`);
         }
         http:Response response = new;
-        response.setHeader("X-Csrf-Token", string `token-${sapClient}`);
+        response.setHeader("X-Csrf-Token", tokenFor(req));
         return response;
     }
 
     resource function post [string... path](http:Request req) returns http:Response|error {
-        string sapClient = headerOf(req, "sap-client");
+        string sapClient = sapClientOf(req);
         string key = string `${string:'join("/", ...path)}|${sapClient}`;
         boolean firstAttempt;
         lock {
@@ -67,7 +78,7 @@ service /csrf on new http:Listener(9405) {
             response.setTextPayload("more than one X-CSRF-Token header");
             return response;
         }
-        if firstAttempt || headerOf(req, "X-CSRF-Token") != string `token-${sapClient}` {
+        if firstAttempt || headerOf(req, "X-CSRF-Token") != tokenFor(req) {
             response.statusCode = http:STATUS_FORBIDDEN;
             response.setHeader("X-Csrf-Token", "Required");
             return response;
@@ -145,6 +156,11 @@ function testFileStreamBodyIsResentOnRetry() returns error? {
 
 class FailingStream {
     private int calls = 0;
+    boolean closed = false;
+
+    public isolated function close() returns io:Error? {
+        self.closed = true;
+    }
 
     public isolated function next() returns record {|byte[] value;|}|io:Error? {
         self.calls += 1;
@@ -157,9 +173,11 @@ class FailingStream {
 
 @test:Config {}
 function testFailingStreamBodyReturnsAnError() {
-    stream<byte[], io:Error?> body = new (new FailingStream());
+    FailingStream failingStream = new;
+    stream<byte[], io:Error?> body = new (failingStream);
     string|ClientError received = csrfClient->post("/failingstream", body);
     test:assertTrue(received is ClientError, "A failing body stream must fail the call instead of sending a partial body");
+    test:assertTrue(failingStream.closed, "The failed stream was not closed");
 }
 
 @test:Config {}
@@ -220,4 +238,41 @@ function testBatchRequestStreamIsResentOnRetry() returns error? {
     stream<byte[], io:Error?> body = [batch.toBytes()].toStream();
     received = check csrfClient->post("/batchstream", body, mediaType = "multipart/mixed; boundary=batch_1");
     test:assertEquals(received, "parts:1", "The retried $batch stream did not carry its body");
+}
+
+@test:Config {}
+function testSapClientQueryParamSelectsTheToken() returns error? {
+    // The fake service only accepts the token of the request's own SAP client, here given as a query parameter.
+    string received = check csrfClient->post("/queryclient?sap-client=300", "x");
+    test:assertEquals(received, "1");
+    received = check csrfClient->/queryclient2.post("x", params = {"sap-client": "300"});
+    test:assertEquals(received, "1");
+    test:assertTrue(recordedTokenFetches().indexOf("300|") !is (),
+            string `No token was fetched for sap-client 300: ${recordedTokenFetches().toString()}`);
+}
+
+@test:Config {}
+function testTokensAreCachedPerUser() returns error? {
+    map<string> userA = {"sap-client": "400", "Proxy-Authorization": "Bearer user-a"};
+    map<string> userB = {"sap-client": "400", "Proxy-Authorization": "Bearer user-b"};
+    string _ = check csrfClient->post("/peruser", "x", userA);
+    string _ = check csrfClient->post("/peruser", "x", userB);
+    // Each user now has a token: alternating between them needs no further token fetch.
+    int fetches = recordedTokenFetches().length();
+    string _ = check csrfClient->post("/peruser", "x", userA);
+    string _ = check csrfClient->post("/peruser", "x", userB);
+    test:assertEquals(recordedTokenFetches().length(), fetches, "A user's token was fetched again");
+}
+
+@test:Config {}
+function testSessionKeyAndQueryParamHelpers() {
+    test:assertEquals(sapClientQueryParam("/A_SalesOrder?$top=1&SAP-Client=200"), "200");
+    test:assertEquals(sapClientQueryParam("/A_SalesOrder?$top=1"), ());
+    test:assertEquals(sapClientQueryParam("/A_SalesOrder"), ());
+    // The header wins over the query parameter, and the user is kept only as a hash.
+    string key = csrfSessionKey({"SAP-CLIENT": "100", "Authorization": "Basic secret"}, "200", true);
+    test:assertTrue(key.startsWith("100||"));
+    test:assertFalse(key.includes("secret"));
+    test:assertEquals(csrfSessionKey({}, "200", true), "200||");
+    test:assertEquals(csrfSessionKey({"Authorization": "Bearer saml"}, (), false), "||");
 }

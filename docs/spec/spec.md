@@ -89,8 +89,9 @@ Before the first modifying request (`post`, `put`, `patch` or `delete`), the cli
 `HEAD <service URL>/` and `X-CSRF-TOKEN: fetch`, and fetches a new one when a request is rejected with
 `403 X-CSRF-Token: Required`. The fetch carries the request's own headers, except the body, conditional and
 method-override headers, so that headers such as `sap-client`, `SAP-Connectivity-SCC-Location_ID` and
-`Proxy-Authorization` route it to the same system and session as the request. Tokens are kept per `sap-client` and
-Cloud Connector location.
+`Proxy-Authorization` route it to the same system and session as the request. A `sap-client` given as a query
+parameter of the request is sent on the fetch as well. Tokens are kept per `sap-client`, Cloud Connector location and
+user (the request's `Authorization` and `Proxy-Authorization` headers).
 
 #### 2.1.2 Cookie
 

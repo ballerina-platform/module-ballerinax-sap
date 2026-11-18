@@ -172,23 +172,7 @@ public client isolated class Client {
 
     private isolated function processPost(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
-        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
-        http:RequestMessage body = check bufferStreamBody(message);
-        map<string|string[]> headersModified = prepareHeaders(headers);
-        check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-        TargetType|ClientError response = self.httpClient->post(path, body, headersModified, mediaType, targetType);
-        if self.isSAMLAuthFailure(response) {
-            check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->post(path, body, headersModified, mediaType, targetType);
-        }
-        if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            return self.httpClient->post(path, body, headersModified, mediaType, targetType);
-        }
-        return response;
+        return self.sendModifyingRequest("POST", path, message, targetType, mediaType, headers);
     }
 
     # The client resource function to send HTTP PUT requests to SAP HTTP endpoints.
@@ -224,24 +208,7 @@ public client isolated class Client {
 
     private isolated function processPut(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
-        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
-        http:RequestMessage body = check bufferStreamBody(message);
-        map<string|string[]> headersModified = prepareHeaders(headers);
-        check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-        TargetType|ClientError response = self.httpClient->put(path, body, headersModified, mediaType, targetType);
-        if self.isSAMLAuthFailure(response) {
-            check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->put(path, body, headersModified, mediaType, targetType);
-        }
-        if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            return self.httpClient->put(path, body, headersModified, mediaType, targetType);
-        }
-        return response;
-
+        return self.sendModifyingRequest("PUT", path, message, targetType, mediaType, headers);
     }
 
     # The client resource function to send HTTP PATCH requests to SAP HTTP endpoints.
@@ -277,24 +244,7 @@ public client isolated class Client {
 
     private isolated function processPatch(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
-        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
-        http:RequestMessage body = check bufferStreamBody(message);
-        map<string|string[]> headersModified = prepareHeaders(headers);
-        check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-        TargetType|ClientError response = self.httpClient->patch(path, body, headersModified, mediaType, targetType);
-        if self.isSAMLAuthFailure(response) {
-            check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->patch(path, body, headersModified, mediaType, targetType);
-        }
-        if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            return self.httpClient->patch(path, body, headersModified, mediaType, targetType);
-        }
-        return response;
-
+        return self.sendModifyingRequest("PATCH", path, message, targetType, mediaType, headers);
     }
 
     # The client resource function to send HTTP DELETE requests to SAP HTTP endpoints.
@@ -330,24 +280,7 @@ public client isolated class Client {
 
     private isolated function processDelete(string path, http:RequestMessage message, typedesc<TargetType> targetType,
             string? mediaType, map<string|string[]>? headers) returns TargetType|ClientError {
-        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
-        http:RequestMessage body = check bufferStreamBody(message);
-        map<string|string[]> headersModified = prepareHeaders(headers);
-        check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified);
-        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-        TargetType|ClientError response = self.httpClient->delete(path, body, headersModified, mediaType, targetType);
-        if self.isSAMLAuthFailure(response) {
-            check self.applySamlAuthHeader(headersModified, true);
-            response = self.httpClient->delete(path, body, headersModified, mediaType, targetType);
-        }
-        if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(headersModified, true);
-            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            return self.httpClient->delete(path, body, headersModified, mediaType, targetType);
-        }
-        return response;
-
+        return self.sendModifyingRequest("DELETE", path, message, targetType, mediaType, headers);
     }
 
     # The client resource function to send HTTP HEAD requests to SAP HTTP endpoints.
@@ -454,19 +387,73 @@ public client isolated class Client {
         return response;
     }
 
+    # Sends a modifying request (`POST`, `PUT`, `PATCH` or `DELETE`) with a CSRF token, and sends it once more after
+    # refreshing the SAML Bearer token (on `401`) or the CSRF token (on `403 X-CSRF-Token: Required`).
+    #
+    # + method - The HTTP method
+    # + path - Request path
+    # + message - An HTTP outbound request or any allowed payload
+    # + targetType - HTTP response or `anydata`, which is expected to be returned after data binding
+    # + mediaType - The MIME type header of the request entity
+    # + headers - The entity headers
+    # + return - The response or the payload, or an `sap:ClientError`
+    private isolated function sendModifyingRequest(string method, string path, http:RequestMessage message,
+            typedesc<TargetType> targetType, string? mediaType, map<string|string[]>? headers)
+            returns TargetType|ClientError {
+        // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
+        http:RequestMessage body = check bufferStreamBody(message);
+        map<string|string[]> headersModified = prepareHeaders(headers);
+        check self.applySamlAuthHeader(headersModified);
+        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, headersModified);
+        setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
+        TargetType|ClientError response = self.invoke(method, path, body, headersModified, mediaType, targetType);
+        if self.isSAMLAuthFailure(response) {
+            check self.applySamlAuthHeader(headersModified, true);
+            response = self.invoke(method, path, body, headersModified, mediaType, targetType);
+        }
+        if isCSRFTokenFailure(response) {
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, headersModified, true);
+            setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
+            return self.invoke(method, path, body, headersModified, mediaType, targetType);
+        }
+        return response;
+    }
+
+    private isolated function invoke(string method, string path, http:RequestMessage body,
+            map<string|string[]> headers, string? mediaType, typedesc<TargetType> targetType)
+            returns TargetType|ClientError {
+        match method {
+            "PUT" => {
+                return self.httpClient->put(path, body, headers, mediaType, targetType);
+            }
+            "PATCH" => {
+                return self.httpClient->patch(path, body, headers, mediaType, targetType);
+            }
+            "DELETE" => {
+                return self.httpClient->delete(path, body, headers, mediaType, targetType);
+            }
+        }
+        return self.httpClient->post(path, body, headers, mediaType, targetType);
+    }
+
     # Returns the CSRF token for the SAP session a modifying request belongs to, fetching it with
     # `HEAD <service URL>/` and `X-CSRF-TOKEN: fetch` when none is cached or `refreshToken` is set.
     #
     # The fetch carries the request's own headers (except the body, conditional and method-override headers), so
     # that headers deciding which system or session the token belongs to, such as `sap-client`,
-    # `SAP-Connectivity-SCC-Location_ID` or `Proxy-Authorization`, reach the same backend as the request.
+    # `SAP-Connectivity-SCC-Location_ID` or `Proxy-Authorization`, reach the same backend as the request. A
+    # `sap-client` given as a query parameter of the request is sent as a query parameter of the fetch as well.
     #
+    # + path - The path of the request the token is for, including its query parameters
     # + requestHeaders - The headers of the request the token is for
     # + refreshToken - Fetch a new token even if one is cached
     # + return - The CSRF token, or an `sap:CSRFTokenFetchFailure` if the server did not return one
-    isolated function fetchCSRFTokenForModifyingRequest(map<string|string[]> requestHeaders, boolean refreshToken = false)
-            returns string|CSRFTokenFetchFailure {
-        string cacheKey = csrfSessionKey(requestHeaders);
+    isolated function fetchCSRFTokenForModifyingRequest(string path, map<string|string[]> requestHeaders,
+            boolean refreshToken = false) returns string|CSRFTokenFetchFailure {
+        string? sapClientInQuery = hasHeader(requestHeaders, SAP_CLIENT) ? () : sapClientQueryParam(path);
+        // With SAML Bearer authentication the `Authorization` header is this client's own token, which changes
+        // on every refresh, so it does not identify the user.
+        string cacheKey = csrfSessionKey(requestHeaders, sapClientInQuery, self.samlAuthConfig is ());
         string? csrfToken = ();
         lock {
             csrfToken = self.csrfTokens[cacheKey];
@@ -475,10 +462,16 @@ public client isolated class Client {
             map<string|string[]> headersModified = tokenFetchHeaders(requestHeaders);
             check self.applySamlAuthHeader(headersModified);
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
-            http:Response response = check self.httpClient->head("/", headersModified);
+            string fetchPath = sapClientInQuery is string ? string `/?${SAP_CLIENT}=${sapClientInQuery}` : "/";
+            http:Response response = check self.httpClient->head(fetchPath, headersModified);
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
             if header is string {
                 lock {
+                    if self.csrfTokens.length() >= MAX_CACHED_CSRF_TOKENS && !self.csrfTokens.hasKey(cacheKey) {
+                        // The session headers come from the caller, so the cache is bounded. A dropped token
+                        // is simply fetched again.
+                        self.csrfTokens.removeAll();
+                    }
                     self.csrfTokens[cacheKey] = header;
                 }
                 return header;
@@ -526,12 +519,8 @@ isolated function isCSRFTokenFailure(TargetType|ClientError response) returns bo
         if detail.statusCode == http:STATUS_FORBIDDEN {
             // `detail.headers` keeps the header names as the server sent them (for example `X-CSRF-Token`), so the
             // name is matched case-insensitively, like `http:Response.getHeader` does.
-            foreach [string, string[]] [name, values] in detail.headers.entries() {
-                if name.equalsIgnoreCaseAscii(SAP_CSRF_HEADER) && values.length() > 0 &&
-                        values[0].equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE) {
-                    return true;
-                }
-            }
+            string? value = headerValue(detail.headers, SAP_CSRF_HEADER);
+            return value is string && value.equalsIgnoreCaseAscii(SAP_CSRF_TOKEN_FAILURE_HEADER_VALUE);
         }
     }
     return false;
@@ -567,13 +556,29 @@ isolated function prepareHeaders(map<string|string[]>? headers) returns map<stri
 # + name - The header name
 # + value - The header value
 isolated function setHeader(map<string|string[]> headers, string name, string value) {
-    string lowerCaseName = name.toLowerAscii();
     foreach string key in headers.keys() {
-        if key != name && key.toLowerAscii() == lowerCaseName {
+        if key != name && key.equalsIgnoreCaseAscii(name) {
             _ = headers.remove(key);
         }
     }
     headers[name] = value;
+}
+
+# Returns the first value of a header, comparing header names case-insensitively as HTTP does.
+#
+# + headers - The headers to search
+# + name - The header name
+# + return - The first value of the header, or `()` if the header is not present
+isolated function headerValue(map<string|string[]> headers, string name) returns string? {
+    foreach [string, string|string[]] [key, value] in headers.entries() {
+        if key.equalsIgnoreCaseAscii(name) {
+            if value is string {
+                return value;
+            }
+            return value.length() > 0 ? value[0] : "";
+        }
+    }
+    return ();
 }
 
 # Checks whether a header is present, comparing header names case-insensitively as HTTP does.
@@ -582,14 +587,15 @@ isolated function setHeader(map<string|string[]> headers, string name, string va
 # + name - The header name
 # + return - `true` if the header is present
 isolated function hasHeader(map<string|string[]> headers, string name) returns boolean {
-    string lowerCaseName = name.toLowerAscii();
-    foreach string key in headers.keys() {
-        if key.toLowerAscii() == lowerCaseName {
-            return true;
-        }
-    }
-    return false;
+    return headerValue(headers, name) is string;
 }
+
+const SAP_CLIENT = "sap-client";
+const SCC_LOCATION_ID_HEADER = "SAP-Connectivity-SCC-Location_ID";
+const PROXY_AUTHORIZATION_HEADER = "Proxy-Authorization";
+
+// The number of CSRF tokens kept, one per SAP session the client has sent modifying requests to.
+const int MAX_CACHED_CSRF_TOKENS = 100;
 
 // Request headers that are not sent on the CSRF token fetch: they describe the request body, make the request
 // conditional or change its method, none of which applies to the `HEAD` request that fetches the token.
@@ -610,10 +616,6 @@ final readonly & string[] TOKEN_FETCH_EXCLUDED_HEADERS = [
     "x-http-method-override"
 ];
 
-// Request headers that select the SAP session a CSRF token belongs to: the SAP client and the Cloud Connector
-// location the SAP BTP Connectivity proxy routes the request to.
-final readonly & string[] CSRF_SESSION_HEADERS = ["sap-client", "sap-connectivity-scc-location_id"];
-
 # Returns the request headers to send on the CSRF token fetch.
 #
 # + requestHeaders - The headers of the request the token is for
@@ -628,22 +630,40 @@ isolated function tokenFetchHeaders(map<string|string[]> requestHeaders) returns
     return fetchHeaders;
 }
 
-# Returns the key a CSRF token is cached under: the values of the headers that select the SAP session.
+# Returns the `sap-client` query parameter of a request path, if it has one.
+#
+# + path - The request path, including its query parameters
+# + return - The value of the `sap-client` query parameter, or `()`
+isolated function sapClientQueryParam(string path) returns string? {
+    int? queryStart = path.indexOf("?");
+    if queryStart is () {
+        return ();
+    }
+    foreach string param in re `&`.split(path.substring(queryStart + 1)) {
+        int? separator = param.indexOf("=");
+        if separator is int && param.substring(0, separator).equalsIgnoreCaseAscii(SAP_CLIENT) {
+            return param.substring(separator + 1);
+        }
+    }
+    return ();
+}
+
+# Returns the key a CSRF token is cached under. A token belongs to an SAP session, which is selected by the SAP
+# client, the Cloud Connector location the SAP BTP Connectivity proxy routes the request to, and the user the
+# request is sent for (the caller's `Authorization` and `Proxy-Authorization` headers, kept only as a hash).
 #
 # + requestHeaders - The headers of the request the token is for
+# + sapClientInQuery - The `sap-client` query parameter of the request, used when there is no such header
+# + includeAuthorization - Whether the `Authorization` header identifies the user
 # + return - The cache key
-isolated function csrfSessionKey(map<string|string[]> requestHeaders) returns string {
-    string[] parts = [];
-    foreach string sessionHeader in CSRF_SESSION_HEADERS {
-        string value = "";
-        foreach [string, string|string[]] [name, headerValue] in requestHeaders.entries() {
-            if name.toLowerAscii() == sessionHeader {
-                value = headerValue is string ? headerValue : string:'join(",", ...headerValue);
-            }
-        }
-        parts.push(value);
-    }
-    return string:'join("|", ...parts);
+isolated function csrfSessionKey(map<string|string[]> requestHeaders, string? sapClientInQuery,
+        boolean includeAuthorization) returns string {
+    string sapClient = headerValue(requestHeaders, SAP_CLIENT) ?: sapClientInQuery ?: "";
+    string location = headerValue(requestHeaders, SCC_LOCATION_ID_HEADER) ?: "";
+    string user = (includeAuthorization ? headerValue(requestHeaders, AUTHORIZATION_HEADER) ?: "" : "") + "|" +
+        (headerValue(requestHeaders, PROXY_AUTHORIZATION_HEADER) ?: "");
+    string userKey = user == "|" ? "" : crypto:hashSha256(user.toBytes()).toBase16();
+    return string `${sapClient}|${location}|${userKey}`;
 }
 
 # Makes a request body safe to send twice. A request may be sent a second time, after its CSRF token or SAML Bearer
@@ -684,6 +704,11 @@ isolated function readStream(stream<byte[], io:Error?> byteStream) returns byte[
         chunk = byteStream.next();
     }
     if chunk is io:Error {
+        // Release the source (for example a file) of a stream that failed midway.
+        io:Error? closeResult = byteStream.close();
+        if closeResult is io:Error {
+            // The read error below is the one to report.
+        }
         return error ClientError("Failed to read the request body stream", chunk);
     }
     return body;
