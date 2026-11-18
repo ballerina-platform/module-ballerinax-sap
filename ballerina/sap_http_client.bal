@@ -476,7 +476,10 @@ public client isolated class Client {
                 }
                 return header;
             } else {
-                return error CSRFTokenFetchFailure("CSRF token not found", header);
+                // Name the status, so that a rejected fetch (for example `401` for wrong credentials or `403` for
+                // a missing authorization) is not mistaken for a CSRF problem.
+                return error CSRFTokenFetchFailure(
+                    string `CSRF token not found: the token fetch returned status ${response.statusCode}`, header);
             }
         }
         return csrfToken;

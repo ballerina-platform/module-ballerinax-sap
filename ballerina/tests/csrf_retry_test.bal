@@ -276,3 +276,20 @@ function testSessionKeyAndQueryParamHelpers() {
     test:assertEquals(csrfSessionKey({}, "200", true), "200||");
     test:assertEquals(csrfSessionKey({"Authorization": "Bearer saml"}, (), false), "||");
 }
+
+// A service whose token fetch is rejected, as for wrong credentials.
+service /denied on new http:Listener(9406) {
+    resource function head .() returns http:Unauthorized {
+        return {};
+    }
+}
+
+@test:Config {}
+function testRejectedTokenFetchReportsTheStatus() returns error? {
+    Client deniedClient = check new ("http://localhost:9406/denied", {auth: {username: "testuser", password: "wrong"}});
+    string|ClientError received = deniedClient->post("/A_SalesOrder", "x");
+    test:assertTrue(received is ClientError);
+    if received is ClientError {
+        test:assertTrue(received.message().includes("status 401"), received.message());
+    }
+}

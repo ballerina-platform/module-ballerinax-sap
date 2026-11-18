@@ -123,3 +123,42 @@ isolated function indexOfOrError(string text, string marker) returns int|error {
     }
     return idx;
 }
+
+service /broken on mockTokenListener {
+    resource function post token() returns http:InternalServerError {
+        return {body: "<html>Internal Server Error</html>", mediaType: "text/html"};
+    }
+}
+
+@test:Config {}
+function testTokenEndpointErrorReportsTheStatus() {
+    SamlBearerToken|ClientError token = getSamlBearerAccessToken({
+        tokenUrl: "http://localhost:9094/broken/token",
+        apiKey: "key",
+        companyId: "company",
+        username: "user",
+        privateKey: "tests/resources/saml_test_key.pem",
+        certificate: "tests/resources/saml_test_cert.pem"
+    });
+    test:assertTrue(token is ClientError);
+    if token is ClientError {
+        test:assertTrue(token.message().includes("status 500"), token.message());
+    }
+}
+
+@test:Config {}
+function testAssertionValuesAreEscaped() returns error? {
+    SamlBearerToken _ = check getSamlBearerAccessToken({
+        tokenUrl: "http://localhost:9094/oauth/token",
+        apiKey: "key&1",
+        companyId: "company",
+        username: "user<a&b>",
+        privateKey: "tests/resources/saml_test_key.pem",
+        certificate: "tests/resources/saml_test_cert.pem"
+    });
+    string assertion = getCapturedAssertion();
+    test:assertTrue(assertion.includes("<saml2:Issuer>key&amp;1</saml2:Issuer>"), "The API key was not escaped");
+    test:assertTrue(assertion.includes(">user&lt;a&amp;b&gt;</saml2:NameID>"), "The user name was not escaped");
+    // The assertion must still be well-formed XML.
+    xml _ = check xml:fromString(assertion);
+}
