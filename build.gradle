@@ -33,6 +33,9 @@ allprojects {
     version = project.version
 
     apply plugin: 'jacoco'
+    jacoco {
+        toolVersion = jacocoVersion
+    }
     apply plugin: 'maven-publish'
 
     repositories {
@@ -66,10 +69,18 @@ allprojects {
 
 def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
-task build {
-    dependsOn(':sap-native:build')
-    dependsOn(':sap-ballerina:build')
-    dependsOn(':sap-examples:build')
+if (tasks.names.contains('build')) {
+    tasks.named('build') {
+        dependsOn(':sap-native:build')
+        dependsOn(':sap-ballerina:build')
+        dependsOn(':sap-examples:build')
+    }
+} else {
+    tasks.register('build') {
+        dependsOn(':sap-native:build')
+        dependsOn(':sap-ballerina:build')
+        dependsOn(':sap-examples:build')
+    }
 }
 
 release {
