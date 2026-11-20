@@ -61,6 +61,9 @@ sap:Client sapClient = check new (string `https://${hostname}/sap/opu/odata/sap/
 });
 ```
 
+The client uses HTTP/1.1 by default (`httpVersion`), as SAP Gateway, the SAP Cloud Connector and the SAP BTP
+Connectivity proxy do. Set `httpVersion: http:HTTP_2_0` to use HTTP/2.
+
 Every request asks for JSON with `Accept: application/json`, unless the caller sets an `Accept` header, either in the
 `headers` map or on an `http:Request` message. A caller's value, for example `application/atom+xml` or
 `application/xml` for an OData V2 service, is sent as it is. The client works on a copy of the `headers` map. For a

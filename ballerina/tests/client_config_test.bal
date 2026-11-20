@@ -17,6 +17,14 @@
 import ballerina/http;
 import ballerina/test;
 
+// Reports back the `Upgrade` header a client sends.
+service /upgrade on new http:Listener(9404, httpVersion = http:HTTP_1_1) {
+    resource function get .(http:Request req) returns string {
+        string|http:HeaderNotFoundError upgrade = req.getHeader("Upgrade");
+        return upgrade is string ? upgrade : "none";
+    }
+}
+
 // Sets two cookies and reports back the cookies a client sends.
 service /cookies on new http:Listener(9403) {
     resource function get set() returns http:Response {
@@ -53,4 +61,24 @@ function testCookiesAreEnabledByDefault() returns error? {
     http:Response _ = check defaultClient->get("/set");
     string sent = check defaultClient->get("/sent");
     test:assertEquals(re `;`.split(sent).length(), 2, string `Expected both cookies, the client sent: ${sent}`);
+}
+
+@test:Config {}
+function testHttp11IsTheDefault() returns error? {
+    ConnectionConfig config = {auth: {username: "testuser", password: "testpassword"}};
+    test:assertEquals(config.httpVersion, http:HTTP_1_1);
+
+    Client defaultClient = check new ("http://localhost:9404/upgrade", config);
+    string upgrade = check defaultClient->get("");
+    test:assertEquals(upgrade, "none", "An HTTP/1.1 client must not ask to upgrade to h2c");
+}
+
+@test:Config {}
+function testHttp2CanStillBeChosen() returns error? {
+    Client http2Client = check new ("http://localhost:9404/upgrade", {
+        auth: {username: "testuser", password: "testpassword"},
+        httpVersion: http:HTTP_2_0
+    });
+    string upgrade = check http2Client->get("");
+    test:assertEquals(upgrade, "h2c", "An HTTP/2 client on an http:// URL asks to upgrade");
 }

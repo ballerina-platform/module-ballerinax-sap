@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- [Default the client to HTTP/1.1](https://github.com/ballerina-platform/ballerina-library/issues/9768)
+
 ### Fixed
 
 - [Send the caller's `Accept` header instead of replacing it with `application/json`](https://github.com/ballerina-platform/ballerina-library/issues/9763). A request that passes an `Accept` header, for example one forwarded from an inbound request, gets the format it asks for instead of JSON
