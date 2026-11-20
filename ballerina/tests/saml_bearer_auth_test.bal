@@ -123,3 +123,80 @@ isolated function indexOfOrError(string text, string marker) returns int|error {
     }
     return idx;
 }
+
+service /broken on mockTokenListener {
+    resource function post token() returns http:InternalServerError {
+        return {body: "<html>Internal Server Error</html>", mediaType: "text/html"};
+    }
+}
+
+@test:Config {}
+function testTokenEndpointErrorReportsTheStatus() {
+    SamlBearerToken|ClientError token = getSamlBearerAccessToken({
+        tokenUrl: "http://localhost:9094/broken/token",
+        apiKey: "key",
+        companyId: "company",
+        username: "user",
+        privateKey: "tests/resources/saml_test_key.pem",
+        certificate: "tests/resources/saml_test_cert.pem"
+    });
+    test:assertTrue(token is ClientError);
+    if token is ClientError {
+        test:assertTrue(token.message().includes("status 500"), token.message());
+    }
+}
+
+@test:Config {}
+function testAssertionValuesAreEscaped() returns error? {
+    SamlBearerToken _ = check getSamlBearerAccessToken({
+        tokenUrl: "http://localhost:9094/oauth/token",
+        apiKey: "key&1",
+        companyId: "company",
+        username: "o'brien \"x\" <a&b>",
+        privateKey: "tests/resources/saml_test_key.pem",
+        certificate: "tests/resources/saml_test_cert.pem"
+    });
+    string assertion = getCapturedAssertion();
+    test:assertTrue(assertion.includes("<saml2:Issuer>key&amp;1</saml2:Issuer>"), "The API key was not escaped");
+    // A quote or an apostrophe stays as it is: canonical XML, which the signature is computed over, does not
+    // escape them in text.
+    test:assertTrue(assertion.includes(">o'brien \"x\" &lt;a&amp;b&gt;</saml2:NameID>"),
+            "The user name was not escaped as canonical XML text");
+    // The assertion must still be well-formed XML.
+    xml _ = check xml:fromString(assertion);
+}
+
+service /rejected on mockTokenListener {
+    resource function post token() returns http:BadRequest {
+        return {body: {"error": "invalid_grant", "error_description": "Unable to map the user"}};
+    }
+}
+
+@test:Config {}
+function testTokenEndpointJsonErrorIsReportedAsJson() {
+    SamlBearerToken|ClientError token = getSamlBearerAccessToken({
+        tokenUrl: "http://localhost:9094/rejected/token",
+        apiKey: "key",
+        companyId: "company",
+        username: "user",
+        privateKey: "tests/resources/saml_test_key.pem",
+        certificate: "tests/resources/saml_test_cert.pem"
+    });
+    test:assertTrue(token is ClientError);
+    if token is ClientError {
+        test:assertTrue(token.message().includes("status 400"), token.message());
+        var body = token.detail()["body"];
+        test:assertTrue(body is map<json>, "The JSON error body was not reported as JSON");
+        if body is map<json> {
+            test:assertEquals(body["error"], "invalid_grant");
+        }
+    }
+}
+
+@test:Config {}
+function testWhitespaceIsEscapedAsCanonicalXml() {
+    // Canonical XML writes these characters as references. Written raw, a parser would normalize them and the
+    // signature, computed over the assertion as it is written, would not match.
+    test:assertEquals(escapeXml("a\rb\tc\nd"), "a&#xD;b\tc\nd");
+    test:assertEquals(escapeXmlAttribute("a\rb\tc\nd\"e"), "a&#xD;b&#x9;c&#xA;d&quot;e");
+}
