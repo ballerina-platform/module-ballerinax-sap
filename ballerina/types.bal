@@ -59,10 +59,8 @@ type SamlBearerToken record {|
 public type ConnectionConfig record {|
     # Configurations related to client authentication
     http:ClientAuthConfig|SamlBearerAuthConfig auth;
-    # The HTTP version understood by the client. Defaults to HTTP/1.1, which SAP Gateway, the SAP Cloud Connector
-    # and the SAP BTP Connectivity proxy speak. With HTTP/2 on an `http://` URL, every request carries an
-    # `Upgrade: h2c` header that some of these intermediaries reject.
-    http:HttpVersion httpVersion = http:HTTP_1_1;
+    # The HTTP version understood by the client
+    http:HttpVersion httpVersion = http:HTTP_2_0;
     # Configurations related to HTTP/1.x protocol
     http:ClientHttp1Settings http1Settings = {};
     # Configurations related to HTTP/2 protocol
