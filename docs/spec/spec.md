@@ -61,6 +61,9 @@ sap:Client sapClient = check new (string `https://${hostname}/sap/opu/odata/sap/
 });
 ```
 
+The client uses HTTP/1.1 by default (`httpVersion`), as SAP Gateway, the SAP Cloud Connector and the SAP BTP
+Connectivity proxy do. Set `httpVersion: http:HTTP_2_0` to use HTTP/2.
+
 #### 2.1.1 Security
 
 The `sap:Client` provides secure HTTP methods for interacting with SAP's HTTP endpoints.

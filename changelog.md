@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- [Default the client to HTTP/1.1](https://github.com/ballerina-platform/ballerina-library/issues/9768)
+
 ## [1.4.0] - 17/09/2026
 
 ### Added
