@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [Send the caller's `Accept` header instead of replacing it with `application/json`](https://github.com/ballerina-platform/ballerina-library/issues/9763). A request that passes an `Accept` header, for example one forwarded from an inbound request, gets the format it asks for instead of JSON
 - [Stop modifying the caller's header map and `http:Request`](https://github.com/ballerina-platform/ballerina-library/issues/9763)
-- [Resend stream bodies in full when a request is retried after a token refresh](https://github.com/ballerina-platform/ballerina-library/issues/9765). A stream body of a modifying request is read into memory before it is sent
+- [Resend stream bodies in full when a request is retried after a token refresh](https://github.com/ballerina-platform/ballerina-library/issues/9765). A stream body, and the content of body parts, of a modifying request is read into memory before it is sent
 - [Send the request's routing and session headers on the CSRF token fetch](https://github.com/ballerina-platform/ballerina-library/issues/9766)
 - [Match the CSRF failure header case-insensitively for data-bound targets](https://github.com/ballerina-platform/ballerina-library/issues/9767)
 - [Keep the caller's cookie settings](https://github.com/ballerina-platform/ballerina-library/issues/9769)

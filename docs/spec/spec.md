@@ -68,8 +68,8 @@ modifying request (`POST`, `PUT`, `PATCH` or `DELETE`) it also sends a copy of a
 the headers and the payload of the caller's request, so the caller's request is not changed.
 
 A modifying request can be sent a second time, after the CSRF token or the SAML Bearer token is refreshed. A stream
-can be read only once, so a stream body, and a stream payload of an `http:Request`, is read into memory before the
-request is sent. Allow for the size of the body in the memory of the integration when uploading large content.
+can be read only once, so a stream body, a stream payload of an `http:Request` and the content of body parts (which
+can be a file or a stream) are read into memory before the request is sent. Allow for the size of the body in the memory of the integration when uploading large content.
 
 A CSRF token is kept for each SAP session a client sends modifying requests to: the `sap-client`, the Cloud Connector
 location (`SAP-Connectivity-SCC-Location_ID`) and the user (the `Authorization` and `Proxy-Authorization` headers a

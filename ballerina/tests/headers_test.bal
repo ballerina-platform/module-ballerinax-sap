@@ -41,6 +41,12 @@ service /echo on new http:Listener(9402) {
     resource function get header/[string name](http:Request req) returns string => headerOf(req, name);
 
     resource function post header/[string name](http:Request req) returns string => headerOf(req, name);
+
+    // Echoes every value of a header, joined with commas.
+    resource function post headers/[string name](http:Request req) returns string {
+        string[]|http:HeaderNotFoundError values = req.getHeaders(name);
+        return values is string[] ? string:'join(",", ...values) : "";
+    }
 }
 
 // A header record whose field is sent under another name.
@@ -203,4 +209,29 @@ function testRequestMessageIsLeftAsTheCallerSetIt() returns error? {
     test:assertEquals(sent, "application/xml");
     test:assertEquals(typed.getContentType(), "text/plain", "The media type was written to the caller's request");
     test:assertEquals(check typed.getTextPayload(), "payload");
+}
+
+@test:Config {}
+function testHeaderMapReplacesTheRequestHeader() returns error? {
+    http:Request request = new;
+    request.setTextPayload("payload");
+    request.setHeader("sap-client", "100");
+    // An array value replaces the header of the request too, so the request goes to one SAP client only.
+    string received = check echoClient->post("/headers/sap-client", request, {"sap-client": ["200"]});
+    test:assertEquals(received, "200");
+    received = check echoClient->post("/headers/sap-client", request, {"SAP-Client": "300"});
+    test:assertEquals(received, "300");
+    received = check echoClient->post("/headers/sap-client", request);
+    test:assertEquals(received, "100");
+}
+
+@test:Config {}
+function testRequestCacheControlIsKept() returns error? {
+    http:RequestCacheControl cacheControl = new;
+    cacheControl.noCache = true;
+    http:Request request = new;
+    request.setTextPayload("payload");
+    request.cacheControl = cacheControl;
+    string received = check echoClient->post("/header/Cache-Control", request);
+    test:assertEquals(received, "no-cache", "The cache control directives of the request were not sent");
 }

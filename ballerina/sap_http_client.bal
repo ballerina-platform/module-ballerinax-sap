@@ -416,17 +416,17 @@ public client isolated class Client {
         // Applied after the token fetch, which may have refreshed the SAML Bearer token.
         check self.applySamlAuthHeader(headersModified);
         setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-        TargetType|ClientError response = self.invoke(method, path, attemptBody(body, snapshot), headersModified,
+        TargetType|ClientError response = self.invoke(method, path, attemptBody(body, snapshot, headersModified), headersModified,
             mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
-            response = self.invoke(method, path, attemptBody(body, snapshot), headersModified, mediaType, targetType);
+            response = self.invoke(method, path, attemptBody(body, snapshot, headersModified), headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
             csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, sessionHeaders, true);
             check self.applySamlAuthHeader(headersModified);
             setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            response = self.invoke(method, path, attemptBody(body, snapshot), headersModified, mediaType, targetType);
+            response = self.invoke(method, path, attemptBody(body, snapshot, headersModified), headersModified, mediaType, targetType);
         }
         return response;
     }
@@ -601,6 +601,8 @@ type RequestSnapshot record {|
     byte[]|mime:Entity[]? payload;
     # The content type of the request, or an empty string
     string contentType;
+    # The cache control directives of the request
+    http:RequestCacheControl? cacheControl;
 |};
 
 # Reads the headers and the payload of the caller's `http:Request`, so that the request itself is never sent. A
@@ -616,12 +618,25 @@ isolated function snapshotRequest(http:Request request) returns RequestSnapshot|
     stream<byte[], io:Error?>|http:ClientError payloadStream = request.getByteStream();
     if payloadStream is stream<byte[], io:Error?> {
         payload = check readStream(payloadStream);
-    } else if contentType.toLowerAscii().startsWith("multipart/") {
-        mime:Entity[]|http:ClientError bodyParts = request.getBodyParts();
-        payload = bodyParts is mime:Entity[] ? bodyParts : ();
     } else {
-        byte[]|http:ClientError bytes = request.getBinaryPayload();
-        payload = bytes is byte[] && bytes.length() > 0 ? bytes : ();
+        // Only a request built with `setBodyParts` holds body parts. A multipart body set as text or bytes (for
+        // example an OData `$batch` body) holds none and is resent as the bytes it is.
+        mime:Entity[] bodyParts = [];
+        if contentType.toLowerAscii().startsWith("multipart/") {
+            mime:Entity[]|http:ClientError parts = request.getBodyParts();
+            if parts is mime:Entity[] {
+                bodyParts = parts;
+            }
+        }
+        if bodyParts.length() > 0 {
+            payload = check bufferBodyParts(bodyParts);
+        } else {
+            byte[]|http:ClientError bytes = request.getBinaryPayload();
+            if bytes is http:ClientError {
+                return error ClientError("Failed to read the payload of the request", bytes);
+            }
+            payload = bytes.length() > 0 ? bytes : ();
+        }
     }
     map<string[]> headers = {};
     foreach string name in request.getHeaderNames() {
@@ -634,21 +649,30 @@ isolated function snapshotRequest(http:Request request) returns RequestSnapshot|
             headers[name] = values;
         }
     }
-    return {headers, payload, contentType};
+    return {headers, payload, contentType, cacheControl: request.cacheControl};
 }
 
 # Returns the body to send on one attempt: a new `http:Request` when the caller passed one, so that each attempt
 # starts from the caller's own headers, and otherwise the body itself.
 #
+# A header of the `headers` map replaces the same header of the caller's request, whether its value is a string or an
+# array, so the request is sent for the SAP session its CSRF token was fetched for.
+#
 # + body - The request body
 # + snapshot - The headers and the payload of the caller's `http:Request`, if the body is one
+# + headers - The `headers` map the request is sent with
 # + return - The body to send
-isolated function attemptBody(http:RequestMessage body, RequestSnapshot? snapshot) returns http:RequestMessage {
+isolated function attemptBody(http:RequestMessage body, RequestSnapshot? snapshot, map<string|string[]> headers)
+        returns http:RequestMessage {
     if snapshot is () {
         return body;
     }
     http:Request request = new;
+    request.cacheControl = snapshot.cacheControl;
     foreach [string, string[]] [name, values] in snapshot.headers.entries() {
+        if hasHeader(headers, name) {
+            continue;
+        }
         foreach string value in values {
             request.addHeader(name, value);
         }
@@ -807,17 +831,64 @@ isolated function csrfSessionKey(map<string|string[]> requestHeaders, string? sa
     return string `${sapClient}|${location}|${userKey}`;
 }
 
-# Makes a stream body safe to send twice. A request may be sent a second time, after its CSRF token or SAML Bearer
-# token is refreshed, and a stream can be read only once, so it would otherwise be resent empty. A stream body is
-# read into memory. Other bodies can already be resent and are returned as they are.
+# Makes a request body safe to send twice. A request may be sent a second time, after its CSRF token or SAML Bearer
+# token is refreshed, and a stream can be read only once, so it would otherwise be resent empty. A stream body, and
+# the content of body parts (which can be a file or a stream), is read into memory. Other bodies can already be
+# resent and are returned as they are.
 #
 # + message - The request body
-# + return - The request body, or an `sap:ClientError` if the stream fails
+# + return - The request body, or an `sap:ClientError` if it cannot be read
 isolated function bufferStreamBody(http:RequestMessage message) returns http:RequestMessage|ClientError {
     if message is stream<byte[], io:Error?> {
         return readStream(message);
     }
+    if message is mime:Entity[] {
+        return bufferBodyParts(message);
+    }
     return message;
+}
+
+# Returns copies of body parts that hold their content in memory, so that a part backed by a file or a stream is
+# resent in full. The caller's parts are left as they are, apart from a stream being read.
+#
+# + parts - The body parts
+# + return - The copies, or an `sap:ClientError` if the content of a part cannot be read
+isolated function bufferBodyParts(mime:Entity[] parts) returns mime:Entity[]|ClientError {
+    mime:Entity[] buffered = [];
+    foreach mime:Entity part in parts {
+        mime:Entity copy = new;
+        foreach string name in part.getHeaderNames() {
+            string[]|mime:HeaderNotFoundError values = part.getHeaders(name);
+            if values is string[] {
+                foreach string value in values {
+                    copy.addHeader(name, value);
+                }
+            }
+        }
+        string contentType = part.getContentType();
+        mime:Entity[] nestedParts = [];
+        if contentType.toLowerAscii().startsWith("multipart/") {
+            mime:Entity[]|mime:ParserError nested = part.getBodyParts();
+            if nested is mime:Entity[] {
+                nestedParts = nested;
+            }
+        }
+        if nestedParts.length() > 0 {
+            copy.setBodyParts(check bufferBodyParts(nestedParts), contentType);
+        } else {
+            byte[]|mime:ParserError content = part.getByteArray();
+            if content is mime:ParserError {
+                return error ClientError("Failed to read the content of a body part", content);
+            }
+            if contentType == "" {
+                copy.setByteArray(content);
+            } else {
+                copy.setByteArray(content, contentType);
+            }
+        }
+        buffered.push(copy);
+    }
+    return buffered;
 }
 
 # Reads a byte stream to its end.

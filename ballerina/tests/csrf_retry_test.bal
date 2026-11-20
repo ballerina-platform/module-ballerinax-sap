@@ -88,6 +88,14 @@ service /csrf on new http:Listener(9405) {
             response.setTextPayload(string `if-match:${values is string[] ? values.length() : 0}`);
             return response;
         }
+        if path[0] == "partbytes" {
+            int total = 0;
+            foreach mime:Entity part in check req.getBodyParts() {
+                total += (check part.getByteArray()).length();
+            }
+            response.setTextPayload(string `bytes:${total}`);
+            return response;
+        }
         if req.getContentType().startsWith("multipart/") {
             mime:Entity[] parts = check req.getBodyParts();
             response.setTextPayload(string `parts:${parts.length()}`);
@@ -394,4 +402,40 @@ function testFailedTokenRefreshLeavesTheRequestClean() returns error? {
     test:assertFalse(request.hasHeader("Authorization"), "The credentials were left on the caller's request");
     test:assertFalse(request.hasHeader("Accept"), "The default Accept was left on the caller's request");
     test:assertEquals(check request.getHeader("X-Request-Id"), "42");
+}
+
+@test:Config {}
+function testBatchRequestSetAsTextOrBytesOnRetry() returns error? {
+    // An OData $batch body set as text or bytes: a multipart content type, but no body parts on the request.
+    string batch = "--batch_1\r\nContent-Type: application/http\r\n\r\nGET A_SalesOrder HTTP/1.1\r\n\r\n\r\n--batch_1--\r\n";
+    http:Request text = new;
+    text.setTextPayload(batch, "multipart/mixed; boundary=batch_1");
+    string received = check csrfClient->post("/batchtext", text);
+    test:assertEquals(received, "parts:1", "The $batch request set as text did not carry its body");
+
+    http:Request binary = new;
+    binary.setBinaryPayload(batch.toBytes(), "multipart/mixed; boundary=batch_1");
+    received = check csrfClient->post("/batchbinary", binary);
+    test:assertEquals(received, "parts:1", "The $batch request set as bytes did not carry its body");
+}
+
+@test:Config {}
+function testFileBackedBodyPartIsResentOnRetry() returns error? {
+    string path = check file:createTemp(suffix = ".txt");
+    check io:fileWriteString(path, "0123456789");
+    mime:Entity filePart = new;
+    filePart.setFileAsEntityBody(path, "text/plain");
+    mime:Entity textPart = new;
+    textPart.setText("abc");
+    mime:Entity[] parts = [filePart, textPart];
+    string received = check csrfClient->post("/partbytes", parts);
+    test:assertEquals(received, "bytes:13", "The retried request did not carry the content of its file part");
+
+    mime:Entity requestPart = new;
+    requestPart.setFileAsEntityBody(path, "text/plain");
+    http:Request request = new;
+    request.setBodyParts([requestPart], "multipart/form-data");
+    received = check csrfClient->post("/partbytes/request", request);
+    test:assertEquals(received, "bytes:10", "The retried http:Request did not carry the content of its file part");
+    check file:remove(path);
 }

@@ -87,15 +87,16 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
 }
 
 # Escapes a value placed in the text of an assertion element, such as a user name containing `&` or `<`. Only the
-# characters that canonical XML escapes in text are escaped, as the signature is computed over the assertion as it
-# is written: a quote or an apostrophe stays as it is.
+# characters that canonical XML escapes in text are escaped (`&`, `<`, `>` and a carriage return), as the signature
+# is computed over the assertion as it is written: a quote or an apostrophe stays as it is.
 #
 # + value - The text to escape
 # + return - The escaped text
 isolated function escapeXml(string value) returns string {
     string escaped = re `&`.replaceAll(value, "&amp;");
     escaped = re `<`.replaceAll(escaped, "&lt;");
-    return re `>`.replaceAll(escaped, "&gt;");
+    escaped = re `>`.replaceAll(escaped, "&gt;");
+    return re `\r`.replaceAll(escaped, "&#xD;");
 }
 
 # Escapes a value placed in an attribute of the assertion, with the characters canonical XML escapes in attributes.
@@ -105,7 +106,10 @@ isolated function escapeXml(string value) returns string {
 isolated function escapeXmlAttribute(string value) returns string {
     string escaped = re `&`.replaceAll(value, "&amp;");
     escaped = re `<`.replaceAll(escaped, "&lt;");
-    return re `"`.replaceAll(escaped, "&quot;");
+    escaped = re `"`.replaceAll(escaped, "&quot;");
+    escaped = re `\t`.replaceAll(escaped, "&#x9;");
+    escaped = re `\n`.replaceAll(escaped, "&#xA;");
+    return re `\r`.replaceAll(escaped, "&#xD;");
 }
 
 isolated function resolveCertificate(string certificate) returns string|error {

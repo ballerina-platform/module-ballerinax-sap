@@ -192,3 +192,11 @@ function testTokenEndpointJsonErrorIsReportedAsJson() {
         }
     }
 }
+
+@test:Config {}
+function testWhitespaceIsEscapedAsCanonicalXml() {
+    // Canonical XML writes these characters as references. Written raw, a parser would normalize them and the
+    // signature, computed over the assertion as it is written, would not match.
+    test:assertEquals(escapeXml("a\rb\tc\nd"), "a&#xD;b\tc\nd");
+    test:assertEquals(escapeXmlAttribute("a\rb\tc\nd\"e"), "a&#xD;b&#x9;c&#xA;d&quot;e");
+}
