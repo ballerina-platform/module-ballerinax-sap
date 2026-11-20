@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- [Send the caller's `Accept` header instead of replacing it with `application/json`](https://github.com/ballerina-platform/ballerina-library/issues/9763). A request that passes an `Accept` header, for example one forwarded from an inbound request, gets the format it asks for instead of JSON
+- [Stop modifying the caller's header map and `http:Request`](https://github.com/ballerina-platform/ballerina-library/issues/9763)
+- [Resend stream bodies in full when a request is retried after a token refresh](https://github.com/ballerina-platform/ballerina-library/issues/9765). A stream body, and the content of body parts, of a modifying request is read into memory before it is sent
+- [Send the request's routing and session headers on the CSRF token fetch](https://github.com/ballerina-platform/ballerina-library/issues/9766)
+- [Match the CSRF failure header case-insensitively for data-bound targets](https://github.com/ballerina-platform/ballerina-library/issues/9767)
+- [Keep the caller's cookie settings](https://github.com/ballerina-platform/ballerina-library/issues/9769)
+- Report the HTTP status when the CSRF token fetch or the SAML Bearer token exchange is rejected
+- Escape the API key and user name in the SAML assertion
+- Refresh an expired SAML Bearer token when the CSRF token fetch is rejected with `401`
+
 ## [1.4.0] - 17/09/2026
 
 ### Added

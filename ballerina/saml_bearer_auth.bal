@@ -48,9 +48,9 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
             issueInstant = issueInstant,
             notBefore = notBefore,
             notOnOrAfter = notOnOrAfter,
-            issuer = config.apiKey,
-            subjectNameId = config.username,
-            recipient = recipient
+            issuer = escapeXml(config.apiKey),
+            subjectNameId = escapeXml(config.username),
+            recipient = escapeXmlAttribute(recipient)
         );
 
         string signedAssertion = check signAssertion(assertionXml, assertionId, certificateBase64, privateKey);
@@ -63,10 +63,15 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
             string `&assertion=${check url:encode(assertionBase64, "UTF-8")}`;
         http:Response response = check tokenClient->post("", requestBody,
                 {"Content-Type": "application/x-www-form-urlencoded"});
-        json payload = check response.getJsonPayload();
         if response.statusCode < 200 || response.statusCode >= 300 {
-            return error ClientError("SAML Bearer token exchange failed", statusCode = response.statusCode, body = payload);
+            // The error body is JSON for an OAuth2 error, but not always (for example an HTML error page): it is
+            // reported as JSON when it is, and as text otherwise.
+            string|error text = response.getTextPayload();
+            json|error body = text is string ? text.fromJsonString() : text;
+            return error ClientError(string `SAML Bearer token exchange failed with status ${response.statusCode}`,
+                statusCode = response.statusCode, body = body is json ? body : (text is string ? text : ""));
         }
+        json payload = check response.getJsonPayload();
         string accessToken = check payload.access_token.ensureType(string);
         decimal expiresIn = 3600;
         json|error expiresInField = payload.expires_in;
@@ -79,6 +84,32 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
     } on fail error e {
         return error ClientError("Failed to obtain an OAuth2 access token via the SAML Bearer flow", e);
     }
+}
+
+# Escapes a value placed in the text of an assertion element, such as a user name containing `&` or `<`. Only the
+# characters that canonical XML escapes in text are escaped (`&`, `<`, `>` and a carriage return), as the signature
+# is computed over the assertion as it is written: a quote or an apostrophe stays as it is.
+#
+# + value - The text to escape
+# + return - The escaped text
+isolated function escapeXml(string value) returns string {
+    string escaped = re `&`.replaceAll(value, "&amp;");
+    escaped = re `<`.replaceAll(escaped, "&lt;");
+    escaped = re `>`.replaceAll(escaped, "&gt;");
+    return re `\r`.replaceAll(escaped, "&#xD;");
+}
+
+# Escapes a value placed in an attribute of the assertion, with the characters canonical XML escapes in attributes.
+#
+# + value - The attribute value to escape
+# + return - The escaped value
+isolated function escapeXmlAttribute(string value) returns string {
+    string escaped = re `&`.replaceAll(value, "&amp;");
+    escaped = re `<`.replaceAll(escaped, "&lt;");
+    escaped = re `"`.replaceAll(escaped, "&quot;");
+    escaped = re `\t`.replaceAll(escaped, "&#x9;");
+    escaped = re `\n`.replaceAll(escaped, "&#xA;");
+    return re `\r`.replaceAll(escaped, "&#xD;");
 }
 
 isolated function resolveCertificate(string certificate) returns string|error {

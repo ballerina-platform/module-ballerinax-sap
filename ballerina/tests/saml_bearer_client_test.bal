@@ -99,6 +99,36 @@ service /api on samlMockTenantListener {
     }
 }
 
+isolated int expiringTokenFetches = 0;
+
+isolated function expiringTokenFetchCount() returns int {
+    lock {
+        return expiringTokenFetches;
+    }
+}
+
+// Rejects the first CSRF token fetch with `401`, like a system the cached SAML Bearer token has expired on.
+service /expiring on samlMockTenantListener {
+    resource function head .(http:Request req) returns http:Response {
+        int fetches;
+        lock {
+            expiringTokenFetches += 1;
+            fetches = expiringTokenFetches;
+        }
+        http:Response resp = new;
+        if fetches == 1 {
+            resp.statusCode = 401;
+        } else {
+            resp.setHeader("X-CSRF-TOKEN", "mock-csrf-token");
+        }
+        return resp;
+    }
+
+    resource function post 'resource(http:Request req) returns json|error {
+        return {seenAuth: check req.getHeader("Authorization")};
+    }
+}
+
 isolated function newSamlTestConfig() returns SamlBearerAuthConfig => {
     apiKey: "testApiKey",
     companyId: "testCompanyId",
@@ -169,4 +199,29 @@ function testPredecodedPrivateKeyRejectedWithClearError() returns error? {
         test:assertTrue(result.message().includes("file path"),
                 "error message should explain the file-path requirement");
     }
+}
+
+@test:Config {}
+function testSamlTokenIsNotLeftWithTheCaller() returns error? {
+    Client samlClient = check new ("http://localhost:9098/api", {auth: newSamlTestConfig()});
+    map<string> headers = {"X-Request-Id": "42"};
+    http:Response _ = check samlClient->get("/resource", headers);
+    http:Response _ = check samlClient->head("/", headers);
+    http:Response _ = check samlClient->post("/resource", "payload", headers);
+    test:assertEquals(headers, {"X-Request-Id": "42"}, "The SAML token was written to the caller's header map");
+
+    http:Request request = new;
+    request.setTextPayload("payload");
+    http:Response _ = check samlClient->post("/resource", request);
+    test:assertFalse(request.hasHeader("Authorization"), "The SAML token was left on the caller's request");
+    test:assertFalse(request.hasHeader(SAP_CSRF_HEADER), "The CSRF token was left on the caller's request");
+}
+
+@test:Config {}
+function testExpiredSamlTokenIsRefreshedOnTheCsrfTokenFetch() returns error? {
+    Client samlClient = check new ("http://localhost:9098/expiring", {auth: newSamlTestConfig()});
+    record {string seenAuth;} response = check samlClient->post("/resource", "payload");
+    test:assertEquals(expiringTokenFetchCount(), 2, "The token fetch was not repeated after the 401");
+    // The request carries the token obtained for the second token fetch, without a further token exchange.
+    test:assertTrue(response.seenAuth.startsWith("Bearer saml-mock-token-"), response.seenAuth);
 }
