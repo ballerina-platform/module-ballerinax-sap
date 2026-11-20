@@ -50,7 +50,7 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
             notOnOrAfter = notOnOrAfter,
             issuer = escapeXml(config.apiKey),
             subjectNameId = escapeXml(config.username),
-            recipient = escapeXml(recipient)
+            recipient = escapeXmlAttribute(recipient)
         );
 
         string signedAssertion = check signAssertion(assertionXml, assertionId, certificateBase64, privateKey);
@@ -64,10 +64,12 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
         http:Response response = check tokenClient->post("", requestBody,
                 {"Content-Type": "application/x-www-form-urlencoded"});
         if response.statusCode < 200 || response.statusCode >= 300 {
-            // The error body is not always JSON (for example an HTML error page), so it is read as text.
-            string|error body = response.getTextPayload();
+            // The error body is JSON for an OAuth2 error, but not always (for example an HTML error page): it is
+            // reported as JSON when it is, and as text otherwise.
+            string|error text = response.getTextPayload();
+            json|error body = text is string ? text.fromJsonString() : text;
             return error ClientError(string `SAML Bearer token exchange failed with status ${response.statusCode}`,
-                statusCode = response.statusCode, body = body is string ? body : "");
+                statusCode = response.statusCode, body = body is json ? body : (text is string ? text : ""));
         }
         json payload = check response.getJsonPayload();
         string accessToken = check payload.access_token.ensureType(string);
@@ -84,17 +86,26 @@ isolated function getSamlBearerAccessToken(SamlBearerAuthConfig config, http:Cli
     }
 }
 
-# Escapes the characters that have a meaning in XML, so that a value such as a user name containing `&` or `<`
-# can be placed in the assertion.
+# Escapes a value placed in the text of an assertion element, such as a user name containing `&` or `<`. Only the
+# characters that canonical XML escapes in text are escaped, as the signature is computed over the assertion as it
+# is written: a quote or an apostrophe stays as it is.
 #
 # + value - The text to escape
 # + return - The escaped text
 isolated function escapeXml(string value) returns string {
     string escaped = re `&`.replaceAll(value, "&amp;");
     escaped = re `<`.replaceAll(escaped, "&lt;");
-    escaped = re `>`.replaceAll(escaped, "&gt;");
-    escaped = re `"`.replaceAll(escaped, "&quot;");
-    return re `'`.replaceAll(escaped, "&apos;");
+    return re `>`.replaceAll(escaped, "&gt;");
+}
+
+# Escapes a value placed in an attribute of the assertion, with the characters canonical XML escapes in attributes.
+#
+# + value - The attribute value to escape
+# + return - The escaped value
+isolated function escapeXmlAttribute(string value) returns string {
+    string escaped = re `&`.replaceAll(value, "&amp;");
+    escaped = re `<`.replaceAll(escaped, "&lt;");
+    return re `"`.replaceAll(escaped, "&quot;");
 }
 
 isolated function resolveCertificate(string certificate) returns string|error {

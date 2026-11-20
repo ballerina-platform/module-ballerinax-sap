@@ -66,8 +66,19 @@ Connectivity proxy do. Set `httpVersion: http:HTTP_2_0` to use HTTP/2.
 
 Every request asks for JSON with `Accept: application/json`, unless the caller sets an `Accept` header, either in the
 `headers` map or on an `http:Request` message. A caller's value, for example `application/atom+xml` or
-`application/xml` for an OData V2 service, is sent as it is. The client works on a copy of the `headers` map and
-leaves an `http:Request` message with the headers the caller set.
+`application/xml` for an OData V2 service, is sent as it is. The client works on a copy of the `headers` map. For a
+modifying request (`POST`, `PUT`, `PATCH` or `DELETE`) it also sends a copy of an `http:Request` message, built from
+the headers and the payload of the caller's request, so the caller's request is not changed.
+
+A modifying request can be sent a second time, after the CSRF token or the SAML Bearer token is refreshed. A stream
+can be read only once, so a stream body, and a stream payload of an `http:Request`, is read into memory before the
+request is sent. Allow for the size of the body in the memory of the integration when uploading large content.
+
+A CSRF token is kept for each SAP session a client sends modifying requests to: the `sap-client`, the Cloud Connector
+location (`SAP-Connectivity-SCC-Location_ID`) and the user (the `Authorization` and `Proxy-Authorization` headers a
+caller passes). The session cookies are kept per client, not per user. Use one `sap:Client` per user: when requests
+for different users of the same SAP client go through one `sap:Client`, a change of user can cost one rejected
+request and a new token fetch.
 
 #### 2.1.1 Security
 

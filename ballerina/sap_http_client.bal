@@ -24,7 +24,7 @@ import ballerina/mime;
 public client isolated class Client {
 
     final http:Client httpClient;
-    // CSRF tokens by SAP session: the `sap-client` and Cloud Connector location the request is routed to.
+    // CSRF tokens by SAP session: the `sap-client`, Cloud Connector location and user the request is sent for.
     private map<string> csrfTokens = {};
     private final (readonly & SamlBearerAuthConfig)? samlAuthConfig;
     private string? samlAccessToken = ();
@@ -401,28 +401,32 @@ public client isolated class Client {
             typedesc<TargetType> targetType, string? mediaType, map<string|string[]>? headers)
             returns TargetType|ClientError {
         // A stream can be read only once: read it now, so that a retry after a token refresh resends the body.
-        http:RequestMessage body = check bufferStreamBody(message);
+        http:RequestMessage body = message is http:Request ? message : check bufferStreamBody(message);
+        // An `http:Request` message is never sent itself. `http:Client` writes the headers, the credentials and the
+        // session cookies onto the request it sends, so every attempt sends a new request built from the caller's.
+        RequestSnapshot? snapshot = message is http:Request ? check snapshotRequest(message) : ();
         // An `Accept` header set on an `http:Request` message counts as the caller's choice too.
-        boolean acceptOnRequest = message is http:Request && hasHeaderValue(message, ACCEPT_HEADER);
+        boolean acceptOnRequest = snapshot is RequestSnapshot && hasHeaderValue(snapshot.headers, ACCEPT_HEADER);
         map<string|string[]> headersModified = prepareHeaders(headers, !acceptOnRequest);
+        // The SAP session the token belongs to is selected by the headers of the request as it is sent: the ones on
+        // an `http:Request` message, and the `headers` map over them.
+        map<string|string[]> sessionHeaders = snapshot is RequestSnapshot
+            ? mergeHeaders(snapshot.headers, headersModified) : headersModified;
+        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, sessionHeaders);
+        // Applied after the token fetch, which may have refreshed the SAML Bearer token.
         check self.applySamlAuthHeader(headersModified);
-        string csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, headersModified);
         setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-        // `http:Client` writes the headers onto an `http:Request` message. Remember the caller's own values, so
-        // that the CSRF token and the SAML `Authorization` header do not stay on the caller's request.
-        map<string[]?> callerValues = message is http:Request ? requestHeaderValues(message, headersModified) : {};
-        TargetType|ClientError response = self.invoke(method, path, body, headersModified, mediaType, targetType);
+        TargetType|ClientError response = self.invoke(method, path, attemptBody(body, snapshot), headersModified,
+            mediaType, targetType);
         if self.isSAMLAuthFailure(response) {
             check self.applySamlAuthHeader(headersModified, true);
-            response = self.invoke(method, path, body, headersModified, mediaType, targetType);
+            response = self.invoke(method, path, attemptBody(body, snapshot), headersModified, mediaType, targetType);
         }
         if isCSRFTokenFailure(response) {
-            csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, headersModified, true);
+            csrfToken = check self.fetchCSRFTokenForModifyingRequest(path, sessionHeaders, true);
+            check self.applySamlAuthHeader(headersModified);
             setHeader(headersModified, SAP_CSRF_HEADER, csrfToken);
-            response = self.invoke(method, path, body, headersModified, mediaType, targetType);
-        }
-        if message is http:Request {
-            restoreRequestHeaders(message, callerValues);
+            response = self.invoke(method, path, attemptBody(body, snapshot), headersModified, mediaType, targetType);
         }
         return response;
     }
@@ -430,18 +434,7 @@ public client isolated class Client {
     private isolated function invoke(string method, string path, http:RequestMessage body,
             map<string|string[]> headers, string? mediaType, typedesc<TargetType> targetType)
             returns TargetType|ClientError {
-        match method {
-            "PUT" => {
-                return self.httpClient->put(path, body, headers, mediaType, targetType);
-            }
-            "PATCH" => {
-                return self.httpClient->patch(path, body, headers, mediaType, targetType);
-            }
-            "DELETE" => {
-                return self.httpClient->delete(path, body, headers, mediaType, targetType);
-            }
-        }
-        return self.httpClient->post(path, body, headers, mediaType, targetType);
+        return self.httpClient->execute(method, path, body, headers, mediaType, targetType);
     }
 
     # Returns the CSRF token for the SAP session a modifying request belongs to, fetching it with
@@ -472,13 +465,18 @@ public client isolated class Client {
             headersModified[SAP_CSRF_HEADER] = SAP_CSRF_TOKEN_FETCH;
             string fetchPath = sapClientInQuery is string ? string `/?${SAP_CLIENT}=${sapClientInQuery}` : "/";
             http:Response response = check self.httpClient->head(fetchPath, headersModified);
+            if response.statusCode == http:STATUS_UNAUTHORIZED && self.samlAuthConfig !is () {
+                // The cached SAML Bearer token has expired: get a new one and fetch once more.
+                check self.applySamlAuthHeader(headersModified, true);
+                response = check self.httpClient->head(fetchPath, headersModified);
+            }
             string|http:HeaderNotFoundError header = response.getHeader(SAP_CSRF_HEADER);
             if header is string {
                 lock {
                     if self.csrfTokens.length() >= MAX_CACHED_CSRF_TOKENS && !self.csrfTokens.hasKey(cacheKey) {
-                        // The session headers come from the caller, so the cache is bounded. A dropped token
-                        // is simply fetched again.
-                        self.csrfTokens.removeAll();
+                        // The session headers come from the caller, so the cache is bounded: the oldest token
+                        // makes room. A dropped token is simply fetched again.
+                        _ = self.csrfTokens.remove(self.csrfTokens.keys()[0]);
                     }
                     self.csrfTokens[cacheKey] = header;
                 }
@@ -538,74 +536,160 @@ isolated function isCSRFTokenFailure(TargetType|ClientError response) returns bo
 }
 
 # Returns a mutable copy of the caller's headers, so that the client never modifies the caller's map
-# (which may also be read-only) when it adds the `Accept`, CSRF token or `Authorization` headers.
+# (which may also be read-only) when it adds the `Accept`, CSRF token or `Authorization` headers. A header record's
+# `@http:Header` names are resolved, as `http:Client` does for the value it is given.
 #
 # + headers - The headers passed by the caller
 # + return - A new map holding the same headers
 isolated function copyHeaders(map<string|string[]>? headers) returns map<string|string[]> {
-    return headers is () ? {} : {...headers};
+    return headers is () ? {} : http:getHeaderMap(headers);
 }
 
 # Returns a mutable copy of the caller's headers and sets `Accept: application/json`, unless the caller
 # has already set an `Accept` header (in any letter case), for example `application/atom+xml` or
-# `application/xml` for an OData V2 service.
+# `application/xml` for an OData V2 service. Empty `Accept` values are not a choice and are dropped.
 #
 # + headers - The headers passed by the caller
+# + defaultAccept - Whether to add the default `Accept` header when the caller's headers have none
 # + return - A new map holding the caller's headers and an `Accept` header
 isolated function prepareHeaders(map<string|string[]>? headers, boolean defaultAccept = true)
         returns map<string|string[]> {
     map<string|string[]> headersModified = copyHeaders(headers);
-    string? accept = headerValue(headersModified, ACCEPT_HEADER);
-    if accept is string && accept.trim() == "" {
-        // An `Accept` header without a value (an empty string or an empty array) is not a choice.
-        foreach string key in headersModified.keys() {
-            if key.equalsIgnoreCaseAscii(ACCEPT_HEADER) {
-                _ = headersModified.remove(key);
-            }
+    foreach string key in headersModified.keys() {
+        if !key.equalsIgnoreCaseAscii(ACCEPT_HEADER) {
+            continue;
         }
-        accept = ();
+        string|string[] value = headersModified.get(key);
+        string[] allValues = [];
+        if value is string {
+            allValues.push(value);
+        } else {
+            allValues = value;
+        }
+        string[] values = allValues.filter(v => v.trim() != "");
+        if values.length() == 0 {
+            _ = headersModified.remove(key);
+        } else if value is string[] {
+            headersModified[key] = values;
+        }
     }
-    if accept is () && defaultAccept {
+    if defaultAccept && !hasHeader(headersModified, ACCEPT_HEADER) {
         headersModified[ACCEPT_HEADER] = mime:APPLICATION_JSON;
     }
     return headersModified;
 }
 
-# Checks whether an `http:Request` has a header with a value.
+# Checks whether the headers of an `http:Request` have a non-empty value for a header.
 #
-# + request - The request
+# + headers - The headers of the request
 # + name - The header name
-# + return - `true` if the request has a non-empty value for the header
-isolated function hasHeaderValue(http:Request request, string name) returns boolean {
-    string|http:HeaderNotFoundError value = request.getHeader(name);
-    return value is string && value.trim() != "";
-}
-
-# Returns the values an `http:Request` has for the given headers, before the client sends it.
-#
-# + request - The caller's request
-# + headers - The headers the client is about to send with it
-# + return - The request's own values by header name, `()` for a header it does not have
-isolated function requestHeaderValues(http:Request request, map<string|string[]> headers) returns map<string[]?> {
-    map<string[]?> values = {};
-    foreach string name in headers.keys() {
-        string[]|http:HeaderNotFoundError current = request.getHeaders(name);
-        values[name] = current is string[] ? current : ();
+# + return - `true` if there is a non-empty value for the header
+isolated function hasHeaderValue(map<string[]> headers, string name) returns boolean {
+    foreach [string, string[]] [key, values] in headers.entries() {
+        if key.equalsIgnoreCaseAscii(name) && values.some(v => v.trim() != "") {
+            return true;
+        }
     }
-    return values;
+    return false;
 }
 
-# Puts the caller's own header values back on an `http:Request` after it was sent.
+# The headers and the payload of an `http:Request` message, from which the request of each attempt is built.
+type RequestSnapshot record {|
+    # The headers of the request, except `Content-Type` when the request has a payload
+    map<string[]> headers;
+    # The payload: the bytes of the body, or the body parts of a multipart request
+    byte[]|mime:Entity[]? payload;
+    # The content type of the request, or an empty string
+    string contentType;
+|};
+
+# Reads the headers and the payload of the caller's `http:Request`, so that the request itself is never sent. A
+# stream payload is read into memory, as a stream can be read only once.
 #
 # + request - The caller's request
-# + callerValues - The values returned by `requestHeaderValues`
-isolated function restoreRequestHeaders(http:Request request, map<string[]?> callerValues) {
-    foreach [string, string[]?] [name, values] in callerValues.entries() {
-        request.removeHeader(name);
+# + return - The headers and the payload, or an `sap:ClientError` if a stream payload fails
+isolated function snapshotRequest(http:Request request) returns RequestSnapshot|ClientError {
+    string contentType = request.getContentType();
+    byte[]|mime:Entity[]? payload = ();
+    // Only a payload set with `setByteStream` is returned as a stream, whatever its content type (an OData `$batch`
+    // body is a stream with a `multipart/mixed` content type).
+    stream<byte[], io:Error?>|http:ClientError payloadStream = request.getByteStream();
+    if payloadStream is stream<byte[], io:Error?> {
+        payload = check readStream(payloadStream);
+    } else if contentType.toLowerAscii().startsWith("multipart/") {
+        mime:Entity[]|http:ClientError bodyParts = request.getBodyParts();
+        payload = bodyParts is mime:Entity[] ? bodyParts : ();
+    } else {
+        byte[]|http:ClientError bytes = request.getBinaryPayload();
+        payload = bytes is byte[] && bytes.length() > 0 ? bytes : ();
+    }
+    map<string[]> headers = {};
+    foreach string name in request.getHeaderNames() {
+        if payload !is () && name.equalsIgnoreCaseAscii(mime:CONTENT_TYPE) {
+            // Set together with the payload.
+            continue;
+        }
+        string[]|http:HeaderNotFoundError values = request.getHeaders(name);
         if values is string[] {
-            foreach string value in values {
-                request.addHeader(name, value);
-            }
+            headers[name] = values;
+        }
+    }
+    return {headers, payload, contentType};
+}
+
+# Returns the body to send on one attempt: a new `http:Request` when the caller passed one, so that each attempt
+# starts from the caller's own headers, and otherwise the body itself.
+#
+# + body - The request body
+# + snapshot - The headers and the payload of the caller's `http:Request`, if the body is one
+# + return - The body to send
+isolated function attemptBody(http:RequestMessage body, RequestSnapshot? snapshot) returns http:RequestMessage {
+    if snapshot is () {
+        return body;
+    }
+    http:Request request = new;
+    foreach [string, string[]] [name, values] in snapshot.headers.entries() {
+        foreach string value in values {
+            request.addHeader(name, value);
+        }
+    }
+    byte[]|mime:Entity[]? payload = snapshot.payload;
+    string? contentType = snapshot.contentType == "" ? () : snapshot.contentType;
+    if payload is byte[] {
+        request.setBinaryPayload(payload, contentType);
+    } else if payload is mime:Entity[] {
+        request.setBodyParts(payload, contentType);
+    }
+    return request;
+}
+
+# Returns the headers a request is sent with when the caller passes an `http:Request` and a `headers` map: the
+# headers of the request, replaced by the entries of the map for the same header.
+#
+# + requestHeaders - The headers of the `http:Request`
+# + headers - The `headers` map
+# + return - A new map holding both
+isolated function mergeHeaders(map<string[]> requestHeaders, map<string|string[]> headers)
+        returns map<string|string[]> {
+    map<string|string[]> merged = {};
+    foreach [string, string[]] [name, values] in requestHeaders.entries() {
+        merged[name] = values;
+    }
+    foreach [string, string|string[]] [name, value] in headers.entries() {
+        removeHeader(merged, name);
+        merged[name] = value;
+    }
+    return merged;
+}
+
+# Removes a header in any letter case.
+#
+# + headers - The headers to update in place
+# + name - The header name
+isolated function removeHeader(map<string|string[]> headers, string name) {
+    foreach string key in headers.keys() {
+        if key.equalsIgnoreCaseAscii(name) {
+            _ = headers.remove(key);
         }
     }
 }
@@ -617,11 +701,7 @@ isolated function restoreRequestHeaders(http:Request request, map<string[]?> cal
 # + name - The header name
 # + value - The header value
 isolated function setHeader(map<string|string[]> headers, string name, string value) {
-    foreach string key in headers.keys() {
-        if key != name && key.equalsIgnoreCaseAscii(name) {
-            _ = headers.remove(key);
-        }
-    }
+    removeHeader(headers, name);
     headers[name] = value;
 }
 
@@ -727,26 +807,13 @@ isolated function csrfSessionKey(map<string|string[]> requestHeaders, string? sa
     return string `${sapClient}|${location}|${userKey}`;
 }
 
-# Makes a request body safe to send twice. A request may be sent a second time, after its CSRF token or SAML Bearer
-# token is refreshed, and a stream can be read only once, so it would otherwise be resent empty. A stream body, and a
-# stream set as the payload of an `http:Request`, is read into memory. Other bodies can already be resent and are
-# returned as they are.
+# Makes a stream body safe to send twice. A request may be sent a second time, after its CSRF token or SAML Bearer
+# token is refreshed, and a stream can be read only once, so it would otherwise be resent empty. A stream body is
+# read into memory. Other bodies can already be resent and are returned as they are.
 #
 # + message - The request body
 # + return - The request body, or an `sap:ClientError` if the stream fails
 isolated function bufferStreamBody(http:RequestMessage message) returns http:RequestMessage|ClientError {
-    if message is http:Request {
-        // Only a payload set with `setByteStream` is returned as a stream, whatever its content type (an OData
-        // `$batch` body is a stream with a `multipart/mixed` content type). For any other payload, including body
-        // parts, this is an error and the request can be resent as it is.
-        stream<byte[], io:Error?>|http:ClientError payloadStream = message.getByteStream();
-        if payloadStream is stream<byte[], io:Error?> {
-            string contentType = message.getContentType();
-            byte[] payload = check readStream(payloadStream);
-            message.setBinaryPayload(payload, contentType == "" ? () : contentType);
-        }
-        return message;
-    }
     if message is stream<byte[], io:Error?> {
         return readStream(message);
     }

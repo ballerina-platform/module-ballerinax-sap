@@ -83,6 +83,11 @@ service /csrf on new http:Listener(9405) {
             response.setHeader("X-Csrf-Token", "Required");
             return response;
         }
+        if path[0] == "ifmatch" {
+            string[]|http:HeaderNotFoundError values = req.getHeaders("If-Match");
+            response.setTextPayload(string `if-match:${values is string[] ? values.length() : 0}`);
+            return response;
+        }
         if req.getContentType().startsWith("multipart/") {
             mime:Entity[] parts = check req.getBodyParts();
             response.setTextPayload(string `parts:${parts.length()}`);
@@ -292,4 +297,101 @@ function testRejectedTokenFetchReportsTheStatus() returns error? {
     if received is ClientError {
         test:assertTrue(received.message().includes("status 401"), received.message());
     }
+}
+
+@test:Config {}
+function testSapClientOnRequestSelectsTheToken() returns error? {
+    // The fake service only accepts the token of the request's own SAP client, here set on the `http:Request`.
+    http:Request request = new;
+    request.setTextPayload("x");
+    request.setHeader("sap-client", "500");
+    request.setHeader("SAP-Connectivity-SCC-Location_ID", "loc-5");
+    string received = check csrfClient->post("/requestclient", request);
+    test:assertEquals(received, "1");
+    test:assertTrue(recordedTokenFetches().indexOf("500|loc-5") !is (),
+            string `No token was fetched for sap-client 500: ${recordedTokenFetches().toString()}`);
+
+    // The `headers` map wins over the request, as it does for the request that is sent.
+    received = check csrfClient->post("/requestclient2", request, {"sap-client": "600"});
+    test:assertEquals(received, "1");
+    test:assertTrue(recordedTokenFetches().indexOf("600|loc-5") !is (), recordedTokenFetches().toString());
+}
+
+@test:Config {}
+function testArrayHeadersAreSentOnceOnRetry() returns error? {
+    http:Request request = new;
+    request.setTextPayload("x");
+    string received = check csrfClient->post("/ifmatch", request, {"If-Match": ["W/\"1\""]});
+    test:assertEquals(received, "if-match:1", "The retried request repeated an array header");
+    test:assertFalse(request.hasHeader("If-Match"), "The header map was written to the caller's request");
+}
+
+@test:Config {}
+function testRequestWithBodyPartsOnRetry() returns error? {
+    mime:Entity part = new;
+    part.setText("hello");
+    http:Request request = new;
+    request.setBodyParts([part], "multipart/form-data");
+    string received = check csrfClient->post("/requestparts", request);
+    test:assertEquals(received, "parts:1", "The retried multipart http:Request did not carry its parts");
+}
+
+@test:Config {}
+function testOnlyTheOldestTokenIsDroppedWhenTheCacheIsFull() returns error? {
+    Client manyClients = check new ("http://localhost:9405/csrf", {
+        auth: {username: "testuser", password: "testpassword"}
+    });
+    foreach int i in 1 ... MAX_CACHED_CSRF_TOKENS + 1 {
+        string _ = check manyClients->post("/full", "x", {"sap-client": string `c${i}`});
+    }
+    int fetches = recordedTokenFetches().length();
+    // The second and the last SAP client still have their tokens: only the first one made room.
+    string _ = check manyClients->post("/full", "x", {"sap-client": "c2"});
+    string _ = check manyClients->post("/full", "x", {"sap-client": string `c${MAX_CACHED_CSRF_TOKENS + 1}`});
+    test:assertEquals(recordedTokenFetches().length(), fetches, "A full cache dropped more than its oldest token");
+    string _ = check manyClients->post("/full", "x", {"sap-client": "c1"});
+    test:assertEquals(recordedTokenFetches().length(), fetches + 1);
+}
+
+isolated int flakyTokenFetches = 0;
+
+// Issues a token once, rejects every POST with `403 X-CSRF-Token: Required`, and then refuses to issue another token.
+service /flaky on new http:Listener(9407) {
+    resource function head .() returns http:Response {
+        int fetches;
+        lock {
+            flakyTokenFetches += 1;
+            fetches = flakyTokenFetches;
+        }
+        http:Response response = new;
+        if fetches == 1 {
+            response.setHeader("X-CSRF-Token", "flaky-token");
+        } else {
+            response.statusCode = http:STATUS_SERVICE_UNAVAILABLE;
+        }
+        return response;
+    }
+
+    resource function post [string... path]() returns http:Response {
+        http:Response response = new;
+        response.statusCode = http:STATUS_FORBIDDEN;
+        response.setHeader("X-CSRF-Token", "Required");
+        return response;
+    }
+}
+
+@test:Config {}
+function testFailedTokenRefreshLeavesTheRequestClean() returns error? {
+    Client flakyClient = check new ("http://localhost:9407/flaky", {
+        auth: {username: "testuser", password: "testpassword"}
+    });
+    http:Request request = new;
+    request.setTextPayload("x");
+    request.setHeader("X-Request-Id", "42");
+    string|ClientError result = flakyClient->post("/entity", request);
+    test:assertTrue(result is CSRFTokenFetchFailure, "The failed token refresh was not reported");
+    test:assertFalse(request.hasHeader(SAP_CSRF_HEADER), "The CSRF token was left on the caller's request");
+    test:assertFalse(request.hasHeader("Authorization"), "The credentials were left on the caller's request");
+    test:assertFalse(request.hasHeader("Accept"), "The default Accept was left on the caller's request");
+    test:assertEquals(check request.getHeader("X-Request-Id"), "42");
 }

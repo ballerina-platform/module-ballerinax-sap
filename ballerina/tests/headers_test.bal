@@ -36,7 +36,18 @@ service /echo on new http:Listener(9402) {
     resource function delete accept(http:Request req) returns string|error => req.getHeader(ACCEPT_HEADER);
 
     resource function options accept(http:Request req) returns string|error => req.getHeader(ACCEPT_HEADER);
+
+    // Echoes any header by name, or an empty string when the request does not have it.
+    resource function get header/[string name](http:Request req) returns string => headerOf(req, name);
+
+    resource function post header/[string name](http:Request req) returns string => headerOf(req, name);
 }
+
+// A header record whose field is sent under another name.
+type ApiKeyHeaders record {|
+    @http:Header {name: "X-Api-Key"}
+    string apiKey;
+|};
 
 final Client echoClient = check new ("http://localhost:9402/echo", {
     auth: {username: "testuser", password: "testpassword"},
@@ -135,6 +146,23 @@ function testEmptyAcceptFallsBackToJson() returns error? {
 }
 
 @test:Config {}
+function testEmptyAcceptValueDoesNotHideARealOne() returns error? {
+    string received = check echoClient->get("/accept", {"Accept": ["", "application/atom+xml"]});
+    test:assertEquals(received, "application/atom+xml");
+    received = check echoClient->post("/accept", "payload", {"Accept": "", "accept": "application/atom+xml"});
+    test:assertEquals(received, "application/atom+xml");
+}
+
+@test:Config {}
+function testHeaderRecordNamesAreResolved() returns error? {
+    ApiKeyHeaders headers = {apiKey: "secret"};
+    string received = check echoClient->get("/header/X-Api-Key", headers);
+    test:assertEquals(received, "secret", "The @http:Header name was not used on GET");
+    received = check echoClient->post("/header/X-Api-Key", "payload", headers);
+    test:assertEquals(received, "secret", "The @http:Header name was not used on POST");
+}
+
+@test:Config {}
 function testAcceptOnRequestMessageIsKept() returns error? {
     http:Request request = new;
     request.setTextPayload("payload");
@@ -165,4 +193,14 @@ function testRequestMessageIsLeftAsTheCallerSetIt() returns error? {
     string _ = check echoClient->post("/accept", plain);
     test:assertFalse(plain.hasHeader(SAP_CSRF_HEADER), "The CSRF token was left on the caller's request");
     test:assertFalse(plain.hasHeader("Accept"), "The default Accept was left on the caller's request");
+    // Nothing the HTTP client adds on the way reaches the caller's request either.
+    test:assertFalse(plain.hasHeader("Authorization"), "The credentials were left on the caller's request");
+    test:assertFalse(plain.hasHeader("Cookie"), "The session cookie was left on the caller's request");
+
+    http:Request typed = new;
+    typed.setTextPayload("payload", "text/plain");
+    string sent = check echoClient->post("/header/Content-Type", typed, mediaType = "application/xml");
+    test:assertEquals(sent, "application/xml");
+    test:assertEquals(typed.getContentType(), "text/plain", "The media type was written to the caller's request");
+    test:assertEquals(check typed.getTextPayload(), "payload");
 }
